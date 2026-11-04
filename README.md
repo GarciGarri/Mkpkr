@@ -11,3 +11,11 @@ Analizador de probabilidades para Texas Hold'em (cash y torneos), pensado para p
 - **Niveles de ayuda**: Solo números · Recomendación · Coach IA.
 
 No está pensado para usarse en salas online ni en casinos que prohíban dispositivos en la mesa.
+
+## Mkpkr Mesa en Directo (`directo.html`)
+
+Herramienta para narrar retransmisiones de poker (con cartas tapadas emitidas en diferido):
+
+- **Operador** (`#operador`): consola de comandos de teclado (`4 r 1600`, `c`, `f Kh7h2c`, `3 AhKh`, `n`, `u`…) con motor de reglas completo: ciegas, antes, orden de acción, botes paralelos, devolución de apuestas no pagadas, showdown automático, deshacer. Puede montar la mesa a partir de una captura de la señal (Claude con visión).
+- **Narrador** (`#narrador`): mesa, equity de cada jugador (exacta tras el flop), gráfica de equity por calle, momentos clave automáticos y frases sugeridas por Claude.
+- Sincronización entre equipos con la base de datos del artefacto, y entre pestañas del mismo navegador con BroadcastChannel.
