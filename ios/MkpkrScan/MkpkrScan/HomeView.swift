@@ -6,6 +6,7 @@ struct HomeView: View {
     @State private var path: [UUID] = []
     @State private var capturing = false
     @State private var noLidar = false
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -23,6 +24,11 @@ struct HomeView: View {
             }
             .navigationTitle("Mkpkr Scan")
             .navigationDestination(for: UUID.self) { id in ScanDetailView(id: id) }
+            .toolbar {
+                Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                    .accessibilityLabel("Ajustes")
+            }
+            .sheet(isPresented: $showingSettings) { SettingsView() }
             .safeAreaInset(edge: .bottom) {
                 Button(action: startScan) {
                     Label("Escanear cocina", systemImage: "viewfinder")
@@ -81,8 +87,8 @@ struct HomeView: View {
                 .font(.title2.bold())
             VStack(alignment: .leading, spacing: 8) {
                 Text("1. Ponte en una esquina y pulsa «Escanear cocina».")
-                Text("2. Recorre la estancia despacio apuntando a paredes, suelo, puertas, ventanas y muebles.")
-                Text("3. Pulsa «Terminar»: tendrás el plano con cotas, el modelo 3D y la lista de huecos y electrodomésticos.")
+                Text("2. Recorre la estancia despacio apuntando a paredes, suelo, puertas, ventanas, muebles y a cada enchufe, toma de agua, desagüe o salida de humos. Puedes marcarlas con la cruz.")
+                Text("3. Pulsa «Terminar»: tendrás el plano con cotas, el modelo 3D, huecos, electrodomésticos e instalaciones (detectadas con Claude si pones tu clave en Ajustes).")
                 Text("4. Añade medidas sueltas con la cinta métrica y envía el escaneo a Mkpkr Cocinas.")
             }
             .foregroundStyle(.secondary)

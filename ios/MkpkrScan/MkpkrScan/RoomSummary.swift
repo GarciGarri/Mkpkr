@@ -51,6 +51,8 @@ struct RoomSummary: Codable, Hashable {
     var openings: [PlanOpening]
     var objects: [PlanObject]
     var height: Float
+    /// Altura del suelo en el sistema del escaneo (metros). Opcional para escaneos antiguos.
+    var floorY: Float?
 
     init(room: CapturedRoom) {
         let floorY = room.walls.map { $0.transform.columns.3.y - $0.dimensions.y / 2 }.min() ?? 0
@@ -95,6 +97,7 @@ struct RoomSummary: Codable, Hashable {
         openings = ops
         objects = objs
         height = room.walls.map { $0.dimensions.y }.max() ?? 0
+        self.floorY = floorY
     }
 
     /// Esquinas: intersección de cada pared con la anterior.

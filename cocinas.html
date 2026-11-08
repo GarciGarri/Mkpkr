@@ -300,7 +300,7 @@ video{width:100%;max-height:340px;background:#000;border-radius:6px;display:bloc
         <div class="panel">
           <div class="panel-head"><h2>Instalaciones existentes</h2><button class="btn sm" id="add-serv">Añadir toma</button></div>
           <p class="hint">La toma de agua decide dónde va el fregadero; la salida de humos, la campana.</p>
-          <div class="tablewrap"><table><thead><tr><th>Toma</th><th>Pared</th><th class="r">Desde</th><th></th></tr></thead><tbody id="serv-table"></tbody></table></div>
+          <div class="tablewrap"><table><thead><tr><th>Toma</th><th>Pared</th><th class="r">Desde</th><th class="r">Altura</th><th></th></tr></thead><tbody id="serv-table"></tbody></table></div>
         </div>
       </div>
       <div class="panel">
@@ -801,7 +801,7 @@ function elevSVG(wi,exp=false){
     o.push(`<rect x="${x}" y="${Y(op.sill+op.h)}" width="${op.w}" height="${op.h}" fill="${op.type==='ventana'?P.glass:P.bg}" stroke="${P.wall}" stroke-width="1"/>`);
     if(op.type==='ventana') o.push(`<line x1="${x+op.w/2}" y1="${Y(op.sill+op.h)}" x2="${x+op.w/2}" y2="${Y(op.sill)}" stroke="${P.wall}" stroke-width=".6"/>`);
     else o.push(`<polyline points="${x},${Y(0)} ${x+op.w},${Y(op.h/2)} ${x},${Y(op.h)}" fill="none" stroke="${P.muted}" stroke-width=".6" stroke-dasharray="4 3"/>`);}
-  for(const s of S.services.filter(s=>s.wall===wi)){const h={agua:50,desague:40,gas:60,humos:H-25,enchufe:110}[s.type];const col=P[SERV_T[s.type].c.replace('--','')];const x=X(s.x);o.push(`<circle cx="${x}" cy="${Y(h)}" r="5" fill="${P.bg}" stroke="${col}" stroke-width="1.4"/>`+txt(x,Y(h),SERV_T[s.type].k,0,6,col,font+' font-weight="700"'));}
+  for(const s of S.services.filter(s=>s.wall===wi)){const h=Math.min(H-6,isFinite(s.h)?s.h:{agua:50,desague:40,gas:60,humos:H-25,enchufe:110}[s.type]);const col=P[SERV_T[s.type].c.replace('--','')];const x=X(s.x);o.push(`<circle cx="${x}" cy="${Y(h)}" r="5" fill="${P.bg}" stroke="${col}" stroke-width="1.4"/>`+txt(x,Y(h),SERV_T[s.type].k,0,6,col,font+' font-weight="700"'));}
   const ms=S.modules.filter(m=>m.wall===wi);
   const box=(x,y0,y1,wd,fill=P.cab,sw=.9)=>`<rect x="${x}" y="${Y(y1)}" width="${wd}" height="${y1-y0}" fill="${fill}" stroke="${P.line}" stroke-width="${sw}"/>`;
   const doors=(x,y0,y1,wd)=>{const n=wd>60?2:1;let s='';for(let k=0;k<n;k++){const dx=x+k*wd/n;s+=box(dx+.6,y0+.6,y1-.6,wd/n-1.2,P.cab,.6);const hx=n===2?(k===0?dx+wd/n-5:dx+5):dx+wd-5;const hy=y0>=140?[y0+6,y0+20]:[y1-6,y1-20];s+=`<line x1="${hx}" y1="${Y(hy[0])}" x2="${hx}" y2="${Y(hy[1])}" stroke="${P.ink}" stroke-width="1.4"/>`;}return s;};
@@ -908,7 +908,7 @@ function renderEstancia(){
   $('#room-h').value=S.height; $('#r-w').value=s.w; $('#r-d').value=s.d; $('#l-W').value=s.W; $('#l-D').value=s.D; $('#l-w2').value=s.w2; $('#l-d2').value=s.d2;
   $('#wall-table').innerHTML=G.walls.map(w=>{const items=[...S.openings.filter(o=>o.wall===w.i).map(o=>OPEN_T[o.type].toLowerCase()),...S.services.filter(x=>x.wall===w.i).map(x=>SERV_T[x.type].n.toLowerCase())];return `<tr><td class="num"><b>${L(w.i)}</b></td><td class="r num">${fmt(w.len)} cm</td><td class="muted">${items.join(', ')||'—'}</td></tr>`;}).join('');
   $('#open-table').innerHTML=S.openings.map(o=>`<tr data-id="${o.id}"><td><select data-k="type">${Object.entries(OPEN_T).map(([k,v])=>`<option value="${k}"${k===o.type?' selected':''}>${v}</option>`).join('')}</select></td><td><select data-k="wall">${wallOpts(o.wall)}</select></td><td class="r"><input type="number" data-k="x" value="${o.x}"></td><td class="r"><input type="number" data-k="w" value="${o.w}"></td><td class="r"><input type="number" data-k="h" value="${o.h}"></td><td class="r"><input type="number" data-k="sill" value="${o.sill}"></td><td><button class="btn sm ghost danger" data-del aria-label="Quitar">Quitar</button></td></tr>`).join('')||`<tr><td colspan="7" class="muted">Sin huecos. Añade la puerta de entrada y las ventanas.</td></tr>`;
-  $('#serv-table').innerHTML=S.services.map(o=>`<tr data-id="${o.id}"><td><select data-k="type">${Object.entries(SERV_T).map(([k,v])=>`<option value="${k}"${k===o.type?' selected':''}>${v.n}</option>`).join('')}</select></td><td><select data-k="wall">${wallOpts(o.wall)}</select></td><td class="r"><input type="number" data-k="x" value="${o.x}"></td><td><button class="btn sm ghost danger" data-del>Quitar</button></td></tr>`).join('')||`<tr><td colspan="4" class="muted">Sin tomas marcadas.</td></tr>`;
+  $('#serv-table').innerHTML=S.services.map(o=>`<tr data-id="${o.id}"><td><select data-k="type">${Object.entries(SERV_T).map(([k,v])=>`<option value="${k}"${k===o.type?' selected':''}>${v.n}</option>`).join('')}</select></td><td><select data-k="wall">${wallOpts(o.wall)}</select></td><td class="r"><input type="number" data-k="x" value="${o.x}"></td><td class="r"><input type="number" data-k="h" value="${isFinite(o.h)?o.h:''}" placeholder="—" aria-label="Altura desde el suelo en cm"></td><td><button class="btn sm ghost danger" data-del>Quitar</button></td></tr>`).join('')||`<tr><td colspan="5" class="muted">Sin tomas marcadas.</td></tr>`;
   $('#room-svg').innerHTML=planSVG({mods:false});
   $('#legend').innerHTML=Object.values(SERV_T).map(v=>`<span><i style="background:var(${v.c})"></i>${v.k} · ${v.n}</span>`).join('');
 }
@@ -983,7 +983,7 @@ $('#room-h').addEventListener('change',e=>{S.height=clamp(+e.target.value||250,2
 for(const [id,k] of [['#r-w','w'],['#r-d','d'],['#l-W','W'],['#l-D','D'],['#l-w2','w2'],['#l-d2','d2']]) $(id).addEventListener('change',e=>{S.shape[k]=Math.max(30,+e.target.value||0);if(S.shape.type==='L'){S.shape.w2=Math.min(S.shape.w2,S.shape.W-60);S.shape.d2=Math.min(S.shape.d2,S.shape.D-60);}changed({relayout:true});});
 function fixRefs(){geom();const n=G.n;S.openings.forEach(o=>{if(o.wall>=n)o.wall=0;});S.services.forEach(o=>{if(o.wall>=n)o.wall=0;});S.design.walls=S.design.walls.filter(i=>i<n);if(!S.design.walls.length)S.design.walls=[0];}
 function bindRowTable(sel,list){
-  $(sel).addEventListener('change',e=>{const tr=e.target.closest('tr[data-id]');if(!tr)return;const it=S[list].find(x=>x.id===tr.dataset.id);const k=e.target.dataset.k;if(!it||!k)return;it[k]=(k==='type')?e.target.value:+e.target.value;changed({relayout:true});});
+  $(sel).addEventListener('change',e=>{const tr=e.target.closest('tr[data-id]');if(!tr)return;const it=S[list].find(x=>x.id===tr.dataset.id);const k=e.target.dataset.k;if(!it||!k)return;it[k]=(k==='type')?e.target.value:(e.target.value===''?undefined:+e.target.value);changed({relayout:true});});
   $(sel).addEventListener('click',e=>{if(!e.target.matches('[data-del]'))return;const tr=e.target.closest('tr[data-id]');S[list]=S[list].filter(x=>x.id!==tr.dataset.id);changed({relayout:true});});
 }
 bindRowTable('#open-table','openings');bindRowTable('#serv-table','services');
@@ -1148,12 +1148,14 @@ function importRoomPlan(j){
   S.shape.pts=pts;S.shape.type='poly';S.height=H;S.example=false;geom();
   const proj=(e)=>{const p={x:e.cx-mx,y:e.cz-my};let best=null;for(const w of G.walls){const t=clamp((p.x-w.a.x)*w.u.x+(p.y-w.a.y)*w.u.y,0,w.len);const q=at(w,t);const d=Math.hypot(q.x-p.x,q.y-p.y);if(!best||d<best.d)best={d,wall:w.i,t};}return best;};
   for(const [key,type] of [['doors','puerta'],['windows','ventana'],['openings','paso']]) for(const el of (room[key]||[])){const e=parse(el);const b=proj(e);if(!b)continue;S.openings.push({id:uid(),type,wall:b.wall,x:R(b.t-e.w/2),w:R(e.w),h:R(e.h),sill:Math.max(0,R(e.cy-e.h/2-floorY))});}
+  const mk=j.mkpkr||{};
+  const inst=(mk.instalaciones||[]).filter(f=>SERV_T[f.tipo]&&isFinite(f.x)&&isFinite(f.z));
+  for(const f of inst){const b=proj({cx:f.x*100,cz:f.z*100});if(!b)continue;S.services.push({id:uid(),type:f.tipo,wall:b.wall,x:R(b.t),h:isFinite(f.altura_cm)?R(f.altura_cm):undefined});}
   const found=[];
   for(const el of (room.objects||[])){const e=parse(el);const b=proj(e);if(!b)continue;const map={sink:'agua',stove:'humos',oven:'humos'};if(map[e.cat]&&!S.services.some(s=>s.type===map[e.cat]))S.services.push({id:uid(),type:map[e.cat],wall:b.wall,x:R(b.t)});const es={sink:'fregadero',stove:'placa',oven:'horno',refrigerator:'frigorífico',dishwasher:'lavavajillas',washerDryer:'lavadora',storage:'mueble',table:'mesa',chair:'silla'};found.push(`${es[e.cat]||e.cat} (${R(e.w)} cm) junto a la pared ${L(b.wall)}`);}
-  const mk=j.mkpkr||{};
   if(mk.nombre&&(!S.project.name||/^Ejemplo/.test(S.project.name)))S.project.name=mk.nombre;
   const med=(mk.medidas||[]).map(m=>`- ${m.etiqueta}: ${fmt(m.cm,1)} cm`).join('\n');
-  S.notes=(S.notes?S.notes+'\n':'')+`Escaneo ${mk.formato==='mkpkr-scan'?'de Mkpkr Scan':'de RoomPlan'}${mk.fecha?' del '+new Date(mk.fecha).toLocaleDateString('es-ES'):''}: ${W.length} paredes, ${S.openings.length} huecos.`+(found.length?` Detectado: ${found.join(', ')}.`:'')+(med?`\nMedidas con la cinta AR:\n${med}`:'');
+  S.notes=(S.notes?S.notes+'\n':'')+`Escaneo ${mk.formato==='mkpkr-scan'?'de Mkpkr Scan':'de RoomPlan'}${mk.fecha?' del '+new Date(mk.fecha).toLocaleDateString('es-ES'):''}: ${W.length} paredes, ${S.openings.length} huecos${inst.length?`, ${inst.length} instalaciones`:''}.`+(found.length?` Detectado: ${found.join(', ')}.`:'')+(med?`\nMedidas con la cinta AR:\n${med}`:'');
   fixRefs();S.manual=false;autoLayout();renderAll();toast('Habitación importada de RoomPlan');location.hash='#estancia';
 }
 
