@@ -5,6 +5,10 @@ App nativa para medir cocinas con el LiDAR, al estilo del modo habitación de Po
 - **Escaneo guiado**: mientras recorres la cocina, la app dibuja en directo paredes, puertas, ventanas, muebles y electrodomésticos (fregadero, placa, horno, frigorífico, lavavajillas…).
 - **Plano con cotas** de cada pared (letras A, B, C… iguales que en Mkpkr Cocinas), superficie, perímetro y altura libre, más la lista de huecos con su antepecho.
 - **Modelo 3D** en Quick Look, con vista en realidad aumentada.
+- **Instalaciones** (toma de agua, desagüe, enchufes, salida de humos, gas), de tres formas:
+  - *Automática*: durante el escaneo se guardan fotos con la posición de la cámara; Claude localiza las instalaciones en ellas y la app las proyecta sobre la pared escaneada con su altura. Necesita una clave de API de Anthropic (Ajustes ⚙︎), guardada solo en el llavero del iPhone.
+  - *Marcada al escanear*: apunta la cruz central y pulsa «Marcar toma».
+  - *Manual*: toca el plano donde está y ajusta tipo, pared, distancia a la esquina y altura. También sirve para corregir las detectadas.
 - **Cinta métrica AR** para medidas sueltas (altura de una toma, ancho de un pilar…), con nombre para cada una.
 - **Enviar a Mkpkr Cocinas**: comparte el JSON del escaneo (CapturedRoom de RoomPlan con las medidas sueltas en la clave `mkpkr`), el USDZ y la planta en PNG. En Mkpkr Cocinas: *Captura → Escaneo LiDAR → Elegir archivo*.
 
