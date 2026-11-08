@@ -7,6 +7,9 @@ on:
       - ".github/workflows/ios.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -37,3 +40,14 @@ jobs:
           name: MkpkrScan-ipa
           path: ios/MkpkrScan/MkpkrScan-sin-firmar.ipa
           retention-days: 90
+      - name: Publicar descarga directa (Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mkpkr-scan-ultima
+          name: Mkpkr Scan · última versión
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: |
+            Descarga `MkpkrScan-sin-firmar.ipa` e instálalo en el iPhone con Sideloadly (Windows) usando tu Apple ID.
+            Compilado desde ${{ github.sha }}.
+          files: ios/MkpkrScan/MkpkrScan-sin-firmar.ipa
