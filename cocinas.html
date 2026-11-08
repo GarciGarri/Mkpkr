@@ -199,7 +199,7 @@ video{width:100%;max-height:340px;background:#000;border-radius:6px;display:bloc
           <div class="panel-head"><h2>Escaneo LiDAR</h2><span class="muted small">RoomPlan JSON · PLY · OBJ · XYZ</span></div>
           <div class="drop" id="drop-scan">
             <p><b>Arrastra el archivo del escaneo</b> o elígelo.</p>
-            <p class="hint">Exporta desde la app de escaneo del iPhone o iPad Pro: nube de puntos o malla en PLY/OBJ (Polycam, 3D Scanner App, Scaniverse) o el JSON de habitación de RoomPlan. El JSON de RoomPlan trae paredes, puertas y ventanas ya medidas.</p>
+            <p class="hint">Con la app <b>Mkpkr Scan</b> del iPhone o iPad Pro pulsa «Enviar a Mkpkr Cocinas» y elige aquí el archivo .json: trae paredes, puertas, ventanas, electrodomésticos y tus medidas sueltas. También valen la nube de puntos o la malla en PLY/OBJ de Polycam, 3D Scanner App o Scaniverse.</p>
             <label class="btn" for="f-scan">Elegir archivo de escaneo</label>
             <input id="f-scan" type="file" accept=".ply,.obj,.xyz,.txt,.pts,.csv,.json" hidden>
           </div>
@@ -974,7 +974,7 @@ $('#btn-confirm-new').addEventListener('click',()=>{S=blankState();autoLayout();
 $('#f-project').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const s=JSON.parse(await f.text());if(s.v!==1||!s.shape)throw 0;S=s;renderAll();toast('Proyecto abierto');}catch(err){toast('Ese archivo no es un proyecto de Mkpkr Cocinas.');}e.target.value='';});
 
 /* ================= eventos: estancia ================= */
-$('#shape-type').addEventListener('change',e=>{S.shape.type=e.target.value;S.example=false;fixRefs();changed({relayout:true});});
+$('#shape-type').addEventListener('change',e=>{S.shape.type=e.target.value;fixRefs();changed({relayout:true});});
 $('#room-h').addEventListener('change',e=>{S.height=clamp(+e.target.value||250,200,400);changed();});
 for(const [id,k] of [['#r-w','w'],['#r-d','d'],['#l-W','W'],['#l-D','D'],['#l-w2','w2'],['#l-d2','d2']]) $(id).addEventListener('change',e=>{S.shape[k]=Math.max(30,+e.target.value||0);if(S.shape.type==='L'){S.shape.w2=Math.min(S.shape.w2,S.shape.W-60);S.shape.d2=Math.min(S.shape.d2,S.shape.D-60);}changed({relayout:true});});
 function fixRefs(){geom();const n=G.n;S.openings.forEach(o=>{if(o.wall>=n)o.wall=0;});S.services.forEach(o=>{if(o.wall>=n)o.wall=0;});S.design.walls=S.design.walls.filter(i=>i<n);if(!S.design.walls.length)S.design.walls=[0];}
@@ -1116,7 +1116,9 @@ $('#scan-clear').addEventListener('click',()=>{scan.trace=[];scan.closed=false;$
 $('#scan-auto').addEventListener('click',()=>{if(!scan.pts2)return;const P=scan.pts2,xs=[],ys=[];for(let i=0;i<P.length;i+=2){xs.push(P[i]);ys.push(P[i+1]);}const x0=pct(xs,.01),x1=pct(xs,.99),y0=pct(ys,.01),y1=pct(ys,.99);scan.trace=[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}];scan.closed=true;$('#scan-use').disabled=false;drawScan();});
 $('#scan-use').addEventListener('click',()=>{const t=scan.trace;if(t.length<3)return;const mx=Math.min(...t.map(p=>p.x)),my=Math.min(...t.map(p=>p.y));
   const pts=t.map(p=>({x:R(p.x-mx),y:R(p.y-my)}));setPolyRoom(pts,scan.height);toast('Planta tomada del escaneo');location.hash='#estancia';});
+function clearExample(){if(!S.example)return;S.example=false;S.notes='';S.project.name='';S.memo='';S.findings=[];S.openings=[];S.services=[];}
 function setPolyRoom(pts,h){
+  clearExample();
   const isRect=pts.length===4&&pts.every((p,i)=>{const q=pts[(i+1)%4];return Math.abs(p.x-q.x)<1||Math.abs(p.y-q.y)<1;});
   S.example=false;S.shape.pts=pts;
   if(isRect){const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);S.shape.w=Math.max(...xs)-Math.min(...xs);S.shape.d=Math.max(...ys)-Math.min(...ys);}
@@ -1125,6 +1127,7 @@ function setPolyRoom(pts,h){
 }
 // RoomPlan (Apple) CapturedRoom JSON
 function importRoomPlan(j){
+  clearExample();
   const room=j.walls?j:(j.rooms&&j.rooms[0])||j.capturedRoom||j;
   if(!room.walls||!room.walls.length) throw new Error('No encuentro paredes en el JSON (se espera el formato CapturedRoom de RoomPlan).');
   const flat=t=>Array.isArray(t[0])?t.flat():t;
@@ -1142,8 +1145,11 @@ function importRoomPlan(j){
   const proj=(e)=>{const p={x:e.cx-mx,y:e.cz-my};let best=null;for(const w of G.walls){const t=clamp((p.x-w.a.x)*w.u.x+(p.y-w.a.y)*w.u.y,0,w.len);const q=at(w,t);const d=Math.hypot(q.x-p.x,q.y-p.y);if(!best||d<best.d)best={d,wall:w.i,t};}return best;};
   for(const [key,type] of [['doors','puerta'],['windows','ventana'],['openings','paso']]) for(const el of (room[key]||[])){const e=parse(el);const b=proj(e);if(!b)continue;S.openings.push({id:uid(),type,wall:b.wall,x:R(b.t-e.w/2),w:R(e.w),h:R(e.h),sill:Math.max(0,R(e.cy-e.h/2-floorY))});}
   const found=[];
-  for(const el of (room.objects||[])){const e=parse(el);const b=proj(e);if(!b)continue;const map={sink:'agua',stove:'humos',oven:'humos'};if(map[e.cat]&&!S.services.some(s=>s.type===map[e.cat]))S.services.push({id:uid(),type:map[e.cat],wall:b.wall,x:R(b.t)});found.push(`${e.cat} junto a pared ${L(b.wall)}`);}
-  S.notes=(S.notes?S.notes+'\n':'')+`Importado de RoomPlan: ${W.length} paredes, ${S.openings.length} huecos.`+(found.length?` Objetos: ${found.join(', ')}.`:'');
+  for(const el of (room.objects||[])){const e=parse(el);const b=proj(e);if(!b)continue;const map={sink:'agua',stove:'humos',oven:'humos'};if(map[e.cat]&&!S.services.some(s=>s.type===map[e.cat]))S.services.push({id:uid(),type:map[e.cat],wall:b.wall,x:R(b.t)});const es={sink:'fregadero',stove:'placa',oven:'horno',refrigerator:'frigorífico',dishwasher:'lavavajillas',washerDryer:'lavadora',storage:'mueble',table:'mesa',chair:'silla'};found.push(`${es[e.cat]||e.cat} (${R(e.w)} cm) junto a la pared ${L(b.wall)}`);}
+  const mk=j.mkpkr||{};
+  if(mk.nombre&&(!S.project.name||/^Ejemplo/.test(S.project.name)))S.project.name=mk.nombre;
+  const med=(mk.medidas||[]).map(m=>`- ${m.etiqueta}: ${fmt(m.cm,1)} cm`).join('\n');
+  S.notes=(S.notes?S.notes+'\n':'')+`Escaneo ${mk.formato==='mkpkr-scan'?'de Mkpkr Scan':'de RoomPlan'}${mk.fecha?' del '+new Date(mk.fecha).toLocaleDateString('es-ES'):''}: ${W.length} paredes, ${S.openings.length} huecos.`+(found.length?` Detectado: ${found.join(', ')}.`:'')+(med?`\nMedidas con la cinta AR:\n${med}`:'');
   fixRefs();S.manual=false;autoLayout();renderAll();toast('Habitación importada de RoomPlan');location.hash='#estancia';
 }
 

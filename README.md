@@ -12,3 +12,7 @@ Toma de datos, plano, presupuesto y render de cocinas a partir del escaneo LiDAR
 6. **Render**: visor 3D (three.js) con acabados de frentes, encimera, suelo y paredes; captura PNG y descripción para un generador de imágenes fotorrealistas.
 
 El botón «Exportar paquete .zip» reúne planta (SVG y DXF), alzados, presupuesto, proyecto JSON, memoria, notas, render y fotogramas.
+
+## Mkpkr Scan (`ios/MkpkrScan`)
+
+App nativa de iPhone/iPad Pro para medir la cocina con el LiDAR (RoomPlan de Apple): escaneo guiado con paredes, huecos y electrodomésticos detectados en directo, plano con cotas, modelo 3D, cinta métrica AR y envío del escaneo a Mkpkr Cocinas. Instrucciones en [`ios/MkpkrScan/README.md`](ios/MkpkrScan/README.md).

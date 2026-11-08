@@ -1,0 +1,27 @@
+name: iOS · Mkpkr Scan
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+      - name: Generar proyecto
+        working-directory: ios/MkpkrScan
+        run: xcodegen generate
+      - name: Compilar para iPhone (sin firmar)
+        working-directory: ios/MkpkrScan
+        run: |
+          set -o pipefail
+          xcodebuild -project MkpkrScan.xcodeproj -scheme MkpkrScan \
+            -destination 'generic/platform=iOS' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 120
