@@ -156,6 +156,8 @@ video{width:100%;max-height:340px;background:#000;border-radius:6px;display:bloc
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 /* --- añadidos: proyectos, diálogo, accesibilidad, móvil --- */
+.tablewrap{position:relative}
+label.f input,label.f select,label.f textarea{color:var(--ink)}
 .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--bad);color:var(--surface);font-family:var(--f-mono);font-size:.7rem;font-weight:700;letter-spacing:0}
 .badge.warn{background:var(--warn)}
@@ -192,7 +194,12 @@ nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   .actions{gap:6px;width:100%}
   .actions .btn{padding:6px 9px;font-size:.82rem;flex:1 1 auto;justify-content:center}
   .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .summary div:nth-child(2),.summary div:nth-child(3),.summary div:nth-child(5){display:none}
+  .summary div.total{grid-column:auto!important;flex-direction:column!important;border-top:0!important;border-left:1px solid var(--line)!important;border-radius:0 var(--r) var(--r) 0!important}
+  .summary div:nth-child(4){border-left:1px solid var(--line)!important;border-top:0!important}
   .summary div{padding:6px 9px}
+  .projname{gap:4px}
+  .example-flag{font-size:.68rem;padding:2px 7px}
   .summary span{font-size:.62rem}
   .summary b{font-size:.92rem}
   .summary div.total{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:baseline;border-left:0;border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r)}
@@ -206,6 +213,14 @@ nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   th,td{padding:5px 6px}
   .elevs{grid-template-columns:minmax(0,1fr)}
 }
+
+a.btn{text-decoration:none;color:inherit}
+td.num,th.r{white-space:nowrap}
+.grid.wide-left{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
+@media (max-width:940px){.grid.wide-left{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.summary div.total b{font-size:.98rem}.summary b{font-size:.88rem}}
+td select{max-width:170px}
+#mod-table input[type=number]{width:62px}
 </style>
 
 <div class="wrap">
@@ -454,7 +469,7 @@ nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 
   <!-- ============ 5 PRESUPUESTO ============ -->
   <section id="v-presupuesto" data-view hidden>
-    <div class="grid">
+    <div class="grid wide-left">
       <div class="stack">
         <div class="panel">
           <div class="panel-head"><h2>Presupuesto</h2>
@@ -710,6 +725,7 @@ function sanitizeProject(raw){
 // Resultado del análisis de fotos: solo se guarda si tiene la forma esperada.
 function sanitizeFinding(r){
   if(!r||typeof r!=='object'||Array.isArray(r)) return null;
+  if(r.elementos!==undefined&&!Array.isArray(r.elementos)) return null;
   const list=v=>Array.isArray(v)?v.filter(x=>typeof x==='string').map(x=>x.slice(0,300)).slice(0,20):[];
   const el=Array.isArray(r.elementos)?r.elementos.filter(x=>x&&typeof x==='object').slice(0,40).map(x=>({tipo:str(x.tipo,30),descripcion:str(x.descripcion,400),medida:str(x.medida,80),confianza:str(x.confianza,10)})):[];
   const out={resumen:str(r.resumen,1000),elementos:el,estado:str(r.estado,600),recomendaciones:list(r.recomendaciones),comprobar:list(r.comprobar)};
@@ -2141,7 +2157,6 @@ function budgetCSVInternal(){const b=budget();
   return '﻿'+rows.map(csvRow).join('\r\n');}
 
 function svgToPng(svg,width){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=width/(img.width||width);const c=document.createElement('canvas');c.width=width;c.height=Math.round((img.height||width*0.7)*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);res({data:c.toDataURL('image/png'),w:c.width,h:c.height});};img.onerror=()=>rej(new Error('No se ha podido convertir el plano a imagen.'));img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});}
-const blobToDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b);});
 async function renderPNG(){try{if(window.THREE){return await three.png(2400);}}catch(e){}return null;}
 
 // PDF para el cliente: presupuesto, condiciones, memoria, planta, alzados y render.
@@ -2150,7 +2165,7 @@ async function buildPDF(){
   if(!S.quote.number){S.quote.number=nextQuoteNumber();}
   if(!S.quote.date){S.quote.date=new Date().toISOString().slice(0,10);}
   saveNow();
-  const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4'}), b=budget(), c=company(), q=quoteMeta(), cl=S.client;
+  const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4',compress:true}), b=budget(), c=company(), q=quoteMeta(), cl=S.client;
   const W=210, M=16, bottom=282, ink=[23,25,28], muted=[91,99,109];
   const set=(size,style='normal',col=ink)=>{doc.setFont('helvetica',style);doc.setFontSize(size);doc.setTextColor(...col);};
   // cabecera
@@ -2181,7 +2196,7 @@ async function buildPDF(){
   }
   need(40);y+=2;doc.setDrawColor(200);doc.line(110,y,W-M,y);y+=6;
   const tot=(t,v,bold)=>{set(bold?11:9.5,bold?'bold':'normal');doc.text(t,150,y,{align:'right'});doc.text(v,X.imp,y,{align:'right'});y+=bold?7:5.2;};
-  tot('Suma',eur(b.sub));if(b.discount)tot(`Descuento ${fmt(S.discount,S.discount%1?1:0)} %`,'−'+eur(b.discount));tot('Base imponible',eur(b.base));tot(`IVA ${fmt(S.iva,S.iva%1?1:0)} %`,eur(b.iva));y+=1;tot('TOTAL',eur(b.total),true);
+  tot('Suma',eur(b.sub));if(b.discount)tot(`Descuento ${fmt(S.discount,S.discount%1?1:0)} %`,'-'+eur(b.discount));tot('Base imponible',eur(b.base));tot(`IVA ${fmt(S.iva,S.iva%1?1:0)} %`,eur(b.iva));y+=1;tot('TOTAL',eur(b.total),true);
   // condiciones
   y+=4;const cond=doc.splitTextToSize(`${c.conditions}\nValidez del presupuesto: ${S.quote.validDays} días (hasta el ${q.until}).`,W-2*M);
   need(cond.length*4+8);set(8,'bold',muted);doc.text('CONDICIONES',M,y);y+=4.5;set(8.5,'normal',muted);doc.text(cond,M,y);y+=cond.length*4;
@@ -2191,12 +2206,13 @@ async function buildPDF(){
   // planos
   const LW=297, LH=210;
   const imgPage=async(title,png)=>{doc.addPage('a4','landscape');set(12,'bold');doc.text(title,M,15);set(8,'normal',muted);doc.text(`${S.project.name||'Cocina'} · cotas en cm · ${q.number}`,LW-M,15,{align:'right'});
-    const mw=LW-2*M, mh=LH-30, k=Math.min(mw/png.w,mh/png.h);doc.addImage(png.data,'PNG',M+(mw-png.w*k)/2,22,png.w*k,png.h*k);};
+    const mw=LW-2*M, mh=LH-30, k=Math.min(mw/png.w,mh/png.h);doc.addImage(png.data,png.type||'PNG',M+(mw-png.w*k)/2,22,png.w*k,png.h*k,undefined,'FAST');};
   await imgPage('Planta de montaje',await svgToPng(planSVG({exp:true,mods:true,chain:true}),2400));
   const ws=[...new Set([...S.design.walls,...S.modules.map(m=>m.wall)])].filter(i=>i<G.n&&!G.walls[i].open).sort((a,b)=>a-b);
   for(const i of ws) await imgPage(`Alzado de la pared ${L(i)}`,await svgToPng(elevSVG(i,true),2000));
   const r=await renderPNG();
-  if(r){const data=await blobToDataURL(r);const img=await loadImg(data);await imgPage('Vista 3D orientativa',{data,w:img.naturalWidth,h:img.naturalHeight});}
+  if(r){const url=URL.createObjectURL(r);const img=await loadImg(url);URL.revokeObjectURL(url);const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0);
+    await imgPage('Vista 3D orientativa',{data:cv.toDataURL('image/jpeg',0.88),type:'JPEG',w:cv.width,h:cv.height});}
   // pie de página
   const n=doc.getNumberOfPages();
   for(let p=1;p<=n;p++){doc.setPage(p);const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight();set(7.5,'normal',muted);doc.text(`${c.name?c.name+' · ':''}Presupuesto ${q.number}`,M,ph-8);doc.text(`Página ${p} de ${n}`,pw-M,ph-8,{align:'right'});}

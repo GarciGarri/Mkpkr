@@ -1,0 +1,32 @@
+name: Web · Mkpkr Cocinas
+
+on:
+  push:
+    paths:
+      - "web/**"
+      - "cocinas.html"
+      - "shared/**"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependencias de prueba
+        run: npm ci || npm install --no-audit --no-fund
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Comprobar que cocinas.html está compilado y pasar las pruebas
+        run: npm test

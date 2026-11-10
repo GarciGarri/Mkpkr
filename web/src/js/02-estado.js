@@ -75,6 +75,7 @@ function sanitizeProject(raw){
 // Resultado del análisis de fotos: solo se guarda si tiene la forma esperada.
 function sanitizeFinding(r){
   if(!r||typeof r!=='object'||Array.isArray(r)) return null;
+  if(r.elementos!==undefined&&!Array.isArray(r.elementos)) return null;
   const list=v=>Array.isArray(v)?v.filter(x=>typeof x==='string').map(x=>x.slice(0,300)).slice(0,20):[];
   const el=Array.isArray(r.elementos)?r.elementos.filter(x=>x&&typeof x==='object').slice(0,40).map(x=>({tipo:str(x.tipo,30),descripcion:str(x.descripcion,400),medida:str(x.medida,80),confianza:str(x.confianza,10)})):[];
   const out={resumen:str(r.resumen,1000),elementos:el,estado:str(r.estado,600),recomendaciones:list(r.recomendaciones),comprobar:list(r.comprobar)};

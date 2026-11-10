@@ -21,7 +21,6 @@ function budgetCSVInternal(){const b=budget();
   return '﻿'+rows.map(csvRow).join('\r\n');}
 
 function svgToPng(svg,width){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=width/(img.width||width);const c=document.createElement('canvas');c.width=width;c.height=Math.round((img.height||width*0.7)*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);res({data:c.toDataURL('image/png'),w:c.width,h:c.height});};img.onerror=()=>rej(new Error('No se ha podido convertir el plano a imagen.'));img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});}
-const blobToDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b);});
 async function renderPNG(){try{if(window.THREE){return await three.png(2400);}}catch(e){}return null;}
 
 // PDF para el cliente: presupuesto, condiciones, memoria, planta, alzados y render.
@@ -30,7 +29,7 @@ async function buildPDF(){
   if(!S.quote.number){S.quote.number=nextQuoteNumber();}
   if(!S.quote.date){S.quote.date=new Date().toISOString().slice(0,10);}
   saveNow();
-  const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4'}), b=budget(), c=company(), q=quoteMeta(), cl=S.client;
+  const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4',compress:true}), b=budget(), c=company(), q=quoteMeta(), cl=S.client;
   const W=210, M=16, bottom=282, ink=[23,25,28], muted=[91,99,109];
   const set=(size,style='normal',col=ink)=>{doc.setFont('helvetica',style);doc.setFontSize(size);doc.setTextColor(...col);};
   // cabecera
@@ -61,7 +60,7 @@ async function buildPDF(){
   }
   need(40);y+=2;doc.setDrawColor(200);doc.line(110,y,W-M,y);y+=6;
   const tot=(t,v,bold)=>{set(bold?11:9.5,bold?'bold':'normal');doc.text(t,150,y,{align:'right'});doc.text(v,X.imp,y,{align:'right'});y+=bold?7:5.2;};
-  tot('Suma',eur(b.sub));if(b.discount)tot(`Descuento ${fmt(S.discount,S.discount%1?1:0)} %`,'−'+eur(b.discount));tot('Base imponible',eur(b.base));tot(`IVA ${fmt(S.iva,S.iva%1?1:0)} %`,eur(b.iva));y+=1;tot('TOTAL',eur(b.total),true);
+  tot('Suma',eur(b.sub));if(b.discount)tot(`Descuento ${fmt(S.discount,S.discount%1?1:0)} %`,'-'+eur(b.discount));tot('Base imponible',eur(b.base));tot(`IVA ${fmt(S.iva,S.iva%1?1:0)} %`,eur(b.iva));y+=1;tot('TOTAL',eur(b.total),true);
   // condiciones
   y+=4;const cond=doc.splitTextToSize(`${c.conditions}\nValidez del presupuesto: ${S.quote.validDays} días (hasta el ${q.until}).`,W-2*M);
   need(cond.length*4+8);set(8,'bold',muted);doc.text('CONDICIONES',M,y);y+=4.5;set(8.5,'normal',muted);doc.text(cond,M,y);y+=cond.length*4;
@@ -71,12 +70,13 @@ async function buildPDF(){
   // planos
   const LW=297, LH=210;
   const imgPage=async(title,png)=>{doc.addPage('a4','landscape');set(12,'bold');doc.text(title,M,15);set(8,'normal',muted);doc.text(`${S.project.name||'Cocina'} · cotas en cm · ${q.number}`,LW-M,15,{align:'right'});
-    const mw=LW-2*M, mh=LH-30, k=Math.min(mw/png.w,mh/png.h);doc.addImage(png.data,'PNG',M+(mw-png.w*k)/2,22,png.w*k,png.h*k);};
+    const mw=LW-2*M, mh=LH-30, k=Math.min(mw/png.w,mh/png.h);doc.addImage(png.data,png.type||'PNG',M+(mw-png.w*k)/2,22,png.w*k,png.h*k,undefined,'FAST');};
   await imgPage('Planta de montaje',await svgToPng(planSVG({exp:true,mods:true,chain:true}),2400));
   const ws=[...new Set([...S.design.walls,...S.modules.map(m=>m.wall)])].filter(i=>i<G.n&&!G.walls[i].open).sort((a,b)=>a-b);
   for(const i of ws) await imgPage(`Alzado de la pared ${L(i)}`,await svgToPng(elevSVG(i,true),2000));
   const r=await renderPNG();
-  if(r){const data=await blobToDataURL(r);const img=await loadImg(data);await imgPage('Vista 3D orientativa',{data,w:img.naturalWidth,h:img.naturalHeight});}
+  if(r){const url=URL.createObjectURL(r);const img=await loadImg(url);URL.revokeObjectURL(url);const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0);
+    await imgPage('Vista 3D orientativa',{data:cv.toDataURL('image/jpeg',0.88),type:'JPEG',w:cv.width,h:cv.height});}
   // pie de página
   const n=doc.getNumberOfPages();
   for(let p=1;p<=n;p++){doc.setPage(p);const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight();set(7.5,'normal',muted);doc.text(`${c.name?c.name+' · ':''}Presupuesto ${q.number}`,M,ph-8);doc.text(`Página ${p} de ${n}`,pw-M,ph-8,{align:'right'});}
