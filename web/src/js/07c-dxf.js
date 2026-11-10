@@ -5,18 +5,20 @@ function dxf(){
   const text=(layer,p,h,s,rot=0)=>out.push('0','TEXT','8',layer,'10',mm(p.x),'20',mm(-p.y),'30','0','40',mm(h),'1',String(s).normalize('NFD').replace(/[̀-ͯ]/g,''),'50',rot.toFixed(1),'72','1','11',mm(p.x),'21',mm(-p.y),'31','0');
   const poly=(layer,ps)=>{for(let i=0;i<ps.length;i++)line(layer,ps[i],ps[(i+1)%ps.length]);};
   const T=12;
-  poly('MUROS',g.pts);
+  const arc=(layer,c,r,a0,a1)=>out.push('0','ARC','8',layer,'10',mm(c.x),'20',mm(-c.y),'30','0','40',mm(r),'50',a0.toFixed(2),'51',a1.toFixed(2));
+  const ang=(c,p)=>(Math.atan2(-(p.y-c.y),p.x-c.x)*180/Math.PI+360)%360;
+  for(const w of g.walls) line(w.open?'ABIERTO':'MUROS',w.a,w.b);
   // contorno exterior
   const offs=g.walls.map(w=>({p:at(w,0,-T),u:w.u}));const outer=offs.map((o,i)=>{const p=offs[(i-1+offs.length)%offs.length];const det=p.u.x*o.u.y-p.u.y*o.u.x;if(Math.abs(det)<1e-6)return o.p;const t=((o.p.x-p.p.x)*o.u.y-(o.p.y-p.p.y)*o.u.x)/det;return {x:p.p.x+p.u.x*t,y:p.p.y+p.u.y*t};});
-  poly('MUROS',outer);
-  for(const op of S.openings){const w=g.walls[op.wall];if(!w)continue;line('HUECOS',at(w,op.x),at(w,op.x,-T));line('HUECOS',at(w,op.x+op.w),at(w,op.x+op.w,-T));if(op.type==='puerta')line('HUECOS',at(w,op.x),at(w,op.x,op.w));text('HUECOS',at(w,op.x+op.w/2,-T-8),5,`${OPEN_T[op.type]} ${op.w}x${op.h}`,0);}
-  for(const m of S.modules){const w=g.walls[m.wall];if(!w)continue;const dep=m.level==='high'?35:60;const layer=m.level==='high'?'MUEBLES_ALTOS':(m.level==='col'?'COLUMNAS':'MUEBLES_BAJOS');
+  for(let i=0;i<outer.length;i++) if(!g.walls[i].open) line('MUROS',outer[i],outer[(i+1)%outer.length]);
+  for(const op of S.openings){const w=g.walls[op.wall];if(!w)continue;line('HUECOS',at(w,op.x),at(w,op.x,-T));line('HUECOS',at(w,op.x+op.w),at(w,op.x+op.w,-T));if(op.type==='puerta'){const c=at(w,op.x),lf=at(w,op.x,op.w),p1=at(w,op.x+op.w);line('HUECOS',c,lf);let a0=ang(c,lf),a1=ang(c,p1);if((a1-a0+360)%360>180)[a0,a1]=[a1,a0];arc('HUECOS',c,op.w,a0,a1);}text('HUECOS',at(w,op.x+op.w/2,-T-8),5,`${OPEN_T[op.type]} ${op.w}x${op.h}`,0);}
+  for(const m of S.modules){const w=g.walls[m.wall];if(!w||m.type==='hueco')continue;const dep=m.level==='high'?35:60;const layer=m.level==='high'?'MUEBLES_ALTOS':(m.level==='col'?'COLUMNAS':'MUEBLES_BAJOS');
     poly(layer,[at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)]);
     if(m.level!=='high')text('TEXTOS',at(w,m.x+m.w/2,dep/2),4,`${TYPES[m.type].k} ${m.w}`,-w.ang*180/Math.PI);}
   for(const w of g.walls)text('COTAS',at(w,w.len/2,-T-30),8,`${L(w.i)} ${fmt(w.len)}`,-w.ang*180/Math.PI);
-  const layers=['MUROS','HUECOS','MUEBLES_BAJOS','MUEBLES_ALTOS','COLUMNAS','TEXTOS','COTAS'];
+  const layers=['MUROS','HUECOS','MUEBLES_BAJOS','MUEBLES_ALTOS','COLUMNAS','TEXTOS','COTAS','ABIERTO'];
   const head=['0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','9','$INSUNITS','70','4','0','ENDSEC','0','SECTION','2','TABLES','0','TABLE','2','LAYER','70',String(layers.length)];
-  layers.forEach((l,i)=>head.push('0','LAYER','2',l,'70','0','62',String([7,4,3,5,6,2,1][i]),'6','CONTINUOUS'));
+  layers.forEach((l,i)=>head.push('0','LAYER','2',l,'70','0','62',String([7,4,3,5,6,2,1,8][i]),'6','CONTINUOUS'));
   head.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES');
   return [...head,...out,'0','ENDSEC','0','EOF'].join('\r\n');
 }

@@ -16,6 +16,8 @@ function elevSVG(wi,exp=false){
   const doors=(x,y0,y1,wd)=>{const n=wd>60?2:1;let s='';for(let k=0;k<n;k++){const dx=x+k*wd/n;s+=box(dx+.6,y0+.6,y1-.6,wd/n-1.2,P.cab,.6);const hx=n===2?(k===0?dx+wd/n-5:dx+5):dx+wd-5;const hy=y0>=140?[y0+6,y0+20]:[y1-6,y1-20];s+=`<line x1="${hx}" y1="${Y(hy[0])}" x2="${hx}" y2="${Y(hy[1])}" stroke="${P.ink}" stroke-width="1.4"/>`;}return s;};
   const drawers=(x,y0,y1,wd,hs)=>{let s='',y=y1;for(const h of hs){s+=box(x+.6,y-h+.6,y-.6,wd-1.2,P.cab,.6)+`<line x1="${x+wd/2-10}" y1="${Y(y-5)}" x2="${x+wd/2+10}" y2="${Y(y-5)}" stroke="${P.ink}" stroke-width="1.4"/>`;y-=h;}return s;};
   for(const m of ms){const x=X(m.x,m.w),wd=m.w;
+    if(m.type==='hueco')continue;
+    if(m.type==='electro'){o.push(`<rect x="${x+1}" y="${Y(85)}" width="${wd-2}" height="85" fill="none" stroke="${P.line}" stroke-width=".8" stroke-dasharray="4 3"/>`+txt(x+wd/2,Y(45),'electrodoméstico',0,6,P.muted,font));continue;}
     if(m.level==='low'){
       o.push(box(x+2,0,10,wd-4,P.cab2,.5));
       if(m.type==='regleta'){o.push(box(x,10,86,wd));continue;}
@@ -34,10 +36,10 @@ function elevSVG(wi,exp=false){
     }
   }
   // encimera
-  const lows=ms.filter(m=>m.level==='low').sort((a,b)=>a.x-b.x);let runs=[],r=null;for(const m of lows){if(r&&Math.abs(r.e-m.x)<1)r.e=m.x+m.w;else{r={s:m.x,e:m.x+m.w};runs.push(r);}}
+  const lows=ms.filter(m=>m.level==='low'&&m.type!=='hueco').sort((a,b)=>a.x-b.x);let runs=[],r=null;for(const m of lows){if(r&&Math.abs(r.e-m.x)<1)r.e=m.x+m.w;else{r={s:m.x,e:m.x+m.w};runs.push(r);}}
   for(const r of runs){const x=w.flip?w.len-r.e:r.s;o.push(`<rect x="${x}" y="${Y(90)}" width="${r.e-r.s}" height="4" fill="${P.ink}"/>`);}
   // cotas
-  const bset=new Set([0,R(w.len)]);for(const m of ms.filter(m=>m.level!=='high')){bset.add(R(X(m.x,m.w)));bset.add(R(X(m.x,m.w)+m.w));}
+  const bset=new Set([0,R(w.len)]);for(const m of ms.filter(m=>m.level!=='high'&&m.type!=='hueco')){bset.add(R(X(m.x,m.w)));bset.add(R(X(m.x,m.w)+m.w));}
   const bs=[...bset].sort((a,b)=>a-b);const yb=H+18;
   o.push(`<line x1="0" y1="${yb}" x2="${w.len}" y2="${yb}" stroke="${P.dim}" stroke-width=".7"/>`);
   for(let k=0;k<bs.length;k++){o.push(`<line x1="${bs[k]-3}" y1="${yb+3}" x2="${bs[k]+3}" y2="${yb-3}" stroke="${P.dim}" stroke-width="1.1"/>`);if(k&&bs[k]-bs[k-1]>=10)o.push(txt((bs[k]+bs[k-1])/2,yb-7,fmt(bs[k]-bs[k-1]),0,bs[k]-bs[k-1]<30?5.5:7,P.dim,font));}

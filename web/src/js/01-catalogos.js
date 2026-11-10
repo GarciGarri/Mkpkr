@@ -4,8 +4,12 @@ const TYPES={
   lavavajillas:{n:'Lavavajillas',lvl:'low',k:'LV'}, placa:{n:'Placa y horno',lvl:'low',k:'PL'}, placa_caj:{n:'Placa y cajones',lvl:'low',k:'PL'},
   rincon:{n:'Rinconero',lvl:'low',k:'R'}, regleta:{n:'Regleta',lvl:'any',k:'·'},
   nevera:{n:'Columna frigorífico',lvl:'col',k:'FG'}, horno_col:{n:'Columna horno',lvl:'col',k:'HC'},
-  alto:{n:'Alto de puertas',lvl:'high',k:'A'}, campana:{n:'Campana',lvl:'high',k:'CA'}
+  alto:{n:'Alto de puertas',lvl:'high',k:'A'}, campana:{n:'Campana',lvl:'high',k:'CA'},
+  electro:{n:'Hueco de electrodoméstico',lvl:'low',k:'EL'}, hueco:{n:'Hueco libre',lvl:'any',k:''}
 };
+// Tipos que no son mueble: no cuentan como módulo ni se presupuestan como mobiliario.
+const NO_MUEBLE=new Set(['hueco','electro','regleta']);
+const LVL_T={low:'Bajo',high:'Alto',col:'Columna'};
 const OPEN_T={ventana:'Ventana',puerta:'Puerta',paso:'Hueco de paso'};
 const SERV_T={agua:{n:'Agua',c:'--water',k:'A'},desague:{n:'Desagüe',c:'--water',k:'D'},gas:{n:'Gas',c:'--gas',k:'G'},humos:{n:'Salida de humos',c:'--smoke',k:'H'},enchufe:{n:'Enchufe',c:'--power',k:'E'}};
 const FRONTS={blanco:{n:'Blanco mate',c:'#f1f0ec'},antracita:{n:'Gris antracita',c:'#3a3d41'},salvia:{n:'Verde salvia',c:'#8ea38b'},noche:{n:'Azul noche',c:'#24344b'},roble:{n:'Roble natural',c:'#b78a5b'},arena:{n:'Arena',c:'#d8cbb4'}};

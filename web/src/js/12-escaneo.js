@@ -8,7 +8,7 @@ $('#f-scan').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadSc
 async function loadScan(f){
   const name=f.name.toLowerCase();$('#scan-info').textContent='Leyendo '+f.name+'…';$('#scan-tools').hidden=false;
   try{
-    if(name.endsWith('.json')){const j=JSON.parse(await f.text());importRoomPlan(j);$('#scan-tools').hidden=true;return;}
+    if(name.endsWith('.json')){let j;try{j=JSON.parse(await f.text());}catch(e){throw new Error('el archivo no es un JSON válido.');}$('#scan-tools').hidden=true;try{await importRoomPlan(j);}catch(e){await ask('No se ha importado el escaneo',e.message||String(e),[{label:'Entendido',value:1,primary:true}]);}return;}
     let xyz;
     if(name.endsWith('.ply')) xyz=parsePLY(await f.arrayBuffer());
     else xyz=parseText(await f.text(),name.endsWith('.obj'));
@@ -69,7 +69,7 @@ function processScan(){
 ['#scan-up','#scan-unit','#scan-z0','#scan-z1'].forEach(id=>$(id).addEventListener('change',()=>{if(scan.raw){scan.trace=[];scan.closed=false;processScan();}}));
 const scv=$('#scan-canvas');
 function scanXf(){const W=scv.width,H=scv.height,pad=40;const k=Math.min((W-2*pad)/(scan.bw||1),(H-2*pad)/(scan.bh||1));return {k,ox:pad+((W-2*pad)-scan.bw*k)/2,oy:pad+((H-2*pad)-scan.bh*k)/2};}
-function drawScan(hover){
+function drawScan(hover,kb){
   const ctx=scv.getContext('2d'),W=scv.width,H=scv.height;const css=getComputedStyle(document.documentElement);
   ctx.fillStyle=css.getPropertyValue('--surface-2').trim()||'#f4f6f7';ctx.fillRect(0,0,W,H);
   if(!scan.pts2)return;const {k,ox,oy}=scanXf();
@@ -87,55 +87,99 @@ function drawScan(hover){
   const tr=scan.trace.slice();if(!scan.closed&&hover&&tr.length)tr.push(snapPt(hover));
   for(let i=0;i<tr.length-(scan.closed?0:1);i++){const a=tr[i],b=tr[(i+1)%tr.length];const l=Math.hypot(b.x-a.x,b.y-a.y);if(l<5)continue;ctx.fillText(fmt(l)+' cm',ox+(a.x+b.x)/2*k+6,oy+(a.y+b.y)/2*k-6);}
   pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,i?4:6,0,7);ctx.fillStyle=i?acc:dim;ctx.fill();});
+  if(kb&&hover){const {k:kk,ox:ox2,oy:oy2}=scanXf();drawCross(ctx,{x:ox2+hover.x*kk,y:oy2+hover.y*kk},12,2);}
 }
 function canvasPt(cv,e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};}
 function toScan(p){const {k,ox,oy}=scanXf();return {x:(p.x-ox)/k,y:(p.y-oy)/k};}
 function snapPt(p){const t=scan.trace;if(!t.length||!$('#scan-ortho').checked)return p;const l=t[t.length-1];const dx=p.x-l.x,dy=p.y-l.y;return Math.abs(dx)>Math.abs(dy)?{x:p.x,y:l.y}:{x:l.x,y:p.y};}
 scv.addEventListener('pointermove',e=>{if(scan.pts2&&!scan.closed)drawScan(toScan(canvasPt(scv,e)));});
-scv.addEventListener('click',e=>{if(!scan.pts2||scan.closed)return;let p=snapPt(toScan(canvasPt(scv,e)));const t=scan.trace;const {k}=scanXf();
+scv.addEventListener('click',e=>scanClick(canvasPt(scv,e)));
+keyboardPointer(scv,{onMove:c=>{if(scan.pts2)drawScan(c&&!scan.closed?toScan(c):null,!!c);},onClick:scanClick});
+function scanClick(c){if(!scan.pts2||scan.closed)return;let p=snapPt(toScan(c));const t=scan.trace;const {k}=scanXf();
   if(t.length>=3&&Math.hypot(p.x-t[0].x,p.y-t[0].y)*k<14){scan.closed=true;if($('#scan-ortho').checked){const l=t[t.length-1];if(Math.abs(l.x-t[0].x)<Math.abs(l.y-t[0].y))l.x=t[0].x;else l.y=t[0].y;}}
-  else t.push(p);$('#scan-use').disabled=!scan.closed;drawScan();});
+  else t.push(p);$('#scan-use').disabled=!scan.closed;drawScan();}
 $('#scan-undo').addEventListener('click',()=>{if(scan.closed)scan.closed=false;else scan.trace.pop();$('#scan-use').disabled=true;drawScan();});
 $('#scan-clear').addEventListener('click',()=>{scan.trace=[];scan.closed=false;$('#scan-use').disabled=true;drawScan();});
 $('#scan-auto').addEventListener('click',()=>{if(!scan.pts2)return;const P=scan.pts2,xs=[],ys=[];for(let i=0;i<P.length;i+=2){xs.push(P[i]);ys.push(P[i+1]);}const x0=pct(xs,.01),x1=pct(xs,.99),y0=pct(ys,.01),y1=pct(ys,.99);scan.trace=[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}];scan.closed=true;$('#scan-use').disabled=false;drawScan();});
-$('#scan-use').addEventListener('click',()=>{const t=scan.trace;if(t.length<3)return;const mx=Math.min(...t.map(p=>p.x)),my=Math.min(...t.map(p=>p.y));
-  const pts=t.map(p=>({x:R(p.x-mx),y:R(p.y-my)}));setPolyRoom(pts,scan.height);toast('Planta tomada del escaneo');location.hash='#estancia';});
-function clearExample(){if(!S.example)return;S.example=false;S.notes='';S.project.name='';S.memo='';S.findings=[];S.openings=[];S.services=[];}
-function setPolyRoom(pts,h){
-  clearExample();
-  const isRect=pts.length===4&&pts.every((p,i)=>{const q=pts[(i+1)%4];return Math.abs(p.x-q.x)<1||Math.abs(p.y-q.y)<1;});
-  S.example=false;S.shape.pts=pts;
-  if(isRect){const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);S.shape.w=Math.max(...xs)-Math.min(...xs);S.shape.d=Math.max(...ys)-Math.min(...ys);}
-  S.shape.type='poly';if(h&&h>180&&h<450)S.height=h;
-  fixRefs();S.manual=false;autoLayout();renderAll();
+$('#scan-use').addEventListener('click',async()=>{const t=scan.trace;if(t.length<3)return;const mx=Math.min(...t.map(p=>p.x)),my=Math.min(...t.map(p=>p.y));
+  const pts=t.map(p=>({x:r1(p.x-mx),y:r1(p.y-my)}));
+  if(!polySimple(pts)){toast('El contorno se cruza consigo mismo. Corrígelo antes de usarlo.');return;}
+  const ok=await applyRoomDraft({pts,open:[],real:{},height:scan.height,openings:null,services:null,name:'',notes:`Planta trazada sobre la nube de puntos ${scan.file||''} (${pts.length} paredes).`});
+  if(ok){toast('Planta tomada del escaneo');location.hash='#estancia';}});
+
+/* ---- de escaneo a proyecto ---- */
+function defaultWalls(walls){
+  const closed=walls.filter(w=>!w.open);if(!closed.length)return [];
+  const lg=[...closed].sort((a,b)=>b.len-a.len)[0], n=walls.length, nx=walls[(lg.i+1)%n];
+  return nx&&!nx.open&&nx.len>=120?[lg.i,nx.i]:[lg.i];
 }
-// RoomPlan (Apple) CapturedRoom JSON
-function importRoomPlan(j){
-  clearExample();
-  const room=j.walls?j:(j.rooms&&j.rooms[0])||j.capturedRoom||j;
-  if(!room.walls||!room.walls.length) throw new Error('No encuentro paredes en el JSON (se espera el formato CapturedRoom de RoomPlan).');
-  const flat=t=>Array.isArray(t[0])?t.flat():t;
-  const parse=el=>{const t=flat(el.transform),d=el.dimensions;return {cx:t[12]*100,cy:t[13]*100,cz:t[14]*100,ux:t[0],uz:t[2],w:d[0]*100,h:d[1]*100,cat:el.category?Object.keys(el.category)[0]:''};};
-  const W=room.walls.map(parse);
-  const C={x:W.reduce((s,w)=>s+w.cx,0)/W.length,y:W.reduce((s,w)=>s+w.cz,0)/W.length};
-  W.forEach(w=>{w.ang=Math.atan2(w.cz-C.y,w.cx-C.x);const l=Math.hypot(w.ux,w.uz)||1;w.ux/=l;w.uz/=l;});
-  W.sort((a,b)=>a.ang-b.ang);
-  const inter=(p,q)=>{const det=p.ux*q.uz-p.uz*q.ux;if(Math.abs(det)<0.15)return {x:(p.cx+p.ux*p.w/2*(Math.sign((q.cx-p.cx)*p.ux+(q.cz-p.cz)*p.uz)||1)),y:(p.cz+p.uz*p.w/2*(Math.sign((q.cx-p.cx)*p.ux+(q.cz-p.cz)*p.uz)||1))};const t=((q.cx-p.cx)*q.uz-(q.cz-p.cz)*q.ux)/det;return {x:p.cx+p.ux*t,y:p.cz+p.uz*t};};
-  let pts=W.map((w,i)=>inter(W[(i-1+W.length)%W.length],w));
-  const mx=Math.min(...pts.map(p=>p.x)),my=Math.min(...pts.map(p=>p.y));pts=pts.map(p=>({x:R(p.x-mx),y:R(p.y-my)}));
-  const floorY=Math.min(...W.map(w=>w.cy-w.h/2));const H=R(Math.max(...W.map(w=>w.h)));
-  S.openings=[];S.services=[];
-  S.shape.pts=pts;S.shape.type='poly';S.height=H;S.example=false;geom();
-  const proj=(e)=>{const p={x:e.cx-mx,y:e.cz-my};let best=null;for(const w of G.walls){const t=clamp((p.x-w.a.x)*w.u.x+(p.y-w.a.y)*w.u.y,0,w.len);const q=at(w,t);const d=Math.hypot(q.x-p.x,q.y-p.y);if(!best||d<best.d)best={d,wall:w.i,t};}return best;};
-  for(const [key,type] of [['doors','puerta'],['windows','ventana'],['openings','paso']]) for(const el of (room[key]||[])){const e=parse(el);const b=proj(e);if(!b)continue;S.openings.push({id:uid(),type,wall:b.wall,x:R(b.t-e.w/2),w:R(e.w),h:R(e.h),sill:Math.max(0,R(e.cy-e.h/2-floorY))});}
-  const mk=j.mkpkr||{};
-  const inst=(mk.instalaciones||[]).filter(f=>SERV_T[f.tipo]&&isFinite(f.x)&&isFinite(f.z));
-  for(const f of inst){const b=proj({cx:f.x*100,cz:f.z*100});if(!b)continue;S.services.push({id:uid(),type:f.tipo,wall:b.wall,x:R(b.t),h:isFinite(f.altura_cm)?R(f.altura_cm):undefined});}
-  const found=[];
-  for(const el of (room.objects||[])){const e=parse(el);const b=proj(e);if(!b)continue;const map={sink:'agua',stove:'humos',oven:'humos'};if(map[e.cat]&&!S.services.some(s=>s.type===map[e.cat]))S.services.push({id:uid(),type:map[e.cat],wall:b.wall,x:R(b.t)});const es={sink:'fregadero',stove:'placa',oven:'horno',refrigerator:'frigorífico',dishwasher:'lavavajillas',washerDryer:'lavadora',storage:'mueble',table:'mesa',chair:'silla'};found.push(`${es[e.cat]||e.cat} (${R(e.w)} cm) junto a la pared ${L(b.wall)}`);}
-  if(mk.nombre&&(!S.project.name||/^Ejemplo/.test(S.project.name)))S.project.name=mk.nombre;
-  const med=(mk.medidas||[]).map(m=>`- ${m.etiqueta}: ${fmt(m.cm,1)} cm`).join('\n');
-  S.notes=(S.notes?S.notes+'\n':'')+`Escaneo ${mk.formato==='mkpkr-scan'?'de Mkpkr Scan':'de RoomPlan'}${mk.fecha?' del '+new Date(mk.fecha).toLocaleDateString('es-ES'):''}: ${W.length} paredes, ${S.openings.length} huecos${inst.length?`, ${inst.length} instalaciones`:''}.`+(found.length?` Detectado: ${found.join(', ')}.`:'')+(med?`\nMedidas con la cinta AR:\n${med}`:'');
-  fixRefs();S.manual=false;autoLayout();renderAll();toast('Habitación importada de RoomPlan');location.hash='#estancia';
+// Carga una estancia (de RoomPlan, de Mkpkr Scan o de la nube de puntos) en un proyecto nuevo
+// o, si el usuario lo elige, en el proyecto abierto. Nunca sustituye datos sin preguntar.
+async function applyRoomDraft(dr){
+  let mode='new';
+  if(!S.example){
+    mode=await ask('¿Dónde cargo el escaneo?',`El proyecto abierto es «${S.project.name||'Sin nombre'}». Puedes crear un proyecto nuevo con el escaneo o sustituir la estancia del proyecto abierto: se conservan cliente, notas, acabados, precios y los módulos bloqueados que sigan cabiendo; se sustituyen paredes${dr.openings?', huecos e instalaciones':''}.`,
+      [{label:'Proyecto nuevo',value:'new',primary:true},{label:'Sustituir la estancia',value:'replace'},{label:'Cancelar',value:null}]);
+    if(!mode) return false;
+  }
+  const put=s=>{s.shape={...s.shape,type:'poly',pts:dr.pts,real:dr.real||{},open:dr.open||[]};if(dr.height>=200&&dr.height<=400)s.height=R(dr.height);if(dr.openings)s.openings=dr.openings;if(dr.services)s.services=dr.services;};
+  if(mode==='new'){
+    const s=blankState();s.project.name=dr.name||'';s.notes=dr.notes||'';put(s);s.openings=dr.openings||[];s.services=dr.services||[];
+    activate(s);geom();S.design.walls=defaultWalls(G.walls);S.modules=[];autoLayout();
+  } else {
+    touch();put(S);S.notes=(S.notes?S.notes+'\n':'')+(dr.notes||'');
+    const before=S.modules.filter(m=>m.lock).length;fixRefs();autoLayout();
+    const lost=before-S.modules.filter(m=>m.lock).length;
+    if(lost>0) setTimeout(()=>toast(`${lost} módulo${lost>1?'s':''} bloqueado${lost>1?'s':''} ya no cabía${lost>1?'n':''} y se ha${lost>1?'n':''} recolocado.`),400);
+  }
+  renderAll();
+  if(mode==='replace') toast('Estancia sustituida',{label:'Deshacer',run:undo});
+  return true;
+}
+// RoomPlan (Apple) CapturedRoom JSON, con o sin el bloque «mkpkr» de Mkpkr Scan.
+function parseRoomPlan(j){
+  const room=Array.isArray(j?.walls)?j:(Array.isArray(j?.rooms)&&j.rooms[0])||j?.capturedRoom||j;
+  if(!room||!Array.isArray(room.walls)||!room.walls.length) throw new Error('No encuentro paredes en el archivo (se espera el formato de Mkpkr Scan o de RoomPlan).');
+  const flat=t=>Array.isArray(t)&&Array.isArray(t[0])?t.flat():t;
+  const parse=el=>{const t=flat(el?.transform),d=el?.dimensions;
+    if(!Array.isArray(t)||t.length<16||!Array.isArray(d)||d.length<2||![...t.slice(0,16),d[0],d[1]].every(Number.isFinite))return null;
+    const l=Math.hypot(t[0],t[2])||1;return {cx:t[12]*100,cy:t[13]*100,cz:t[14]*100,ux:t[0]/l,uz:t[2]/l,w:d[0]*100,h:d[1]*100,cat:el.category&&typeof el.category==='object'?Object.keys(el.category)[0]||'':''};};
+  const W=room.walls.map(parse).filter(Boolean);
+  if(W.length<2) throw new Error('El escaneo tiene menos de dos paredes válidas.');
+  const floorY=Math.min(...W.map(w=>w.cy-w.h/2)), height=R(Math.max(...W.map(w=>w.h)));
+  const mk=j.mkpkr&&typeof j.mkpkr==='object'?j.mkpkr:{};
+  let pts=null,open=[],real={},contour=null;
+  const pl=mk.planta;
+  if(pl&&Array.isArray(pl.esquinas)&&pl.esquinas.length>=3&&pl.esquinas.every(p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]))){
+    const P=pl.esquinas.map(p=>({x:p[0]*100,y:p[1]*100}));
+    if(polySimple(P)&&polyArea(P)>1.5e4){pts=P;
+      open=(Array.isArray(pl.abiertas)?pl.abiertas:[]).filter(i=>Number.isInteger(i)&&i>=0&&i<P.length);
+      if(pl.paredes_reales&&typeof pl.paredes_reales==='object')for(const [k,v] of Object.entries(pl.paredes_reales)){const i=+k;if(Number.isInteger(i)&&i>=0&&i<P.length&&Number.isFinite(+v)&&+v>10)real[i]=r1(+v);}}
+  }
+  if(!pts){contour=buildContour(W.map(w=>({a:{x:w.cx-w.ux*w.w/2,y:w.cz-w.uz*w.w/2},b:{x:w.cx+w.ux*w.w/2,y:w.cz+w.uz*w.w/2},h:w.h})));pts=contour.pts;open=contour.open;}
+  const mx=Math.min(...pts.map(p=>p.x)),my=Math.min(...pts.map(p=>p.y));
+  const P=pts.map(p=>({x:r1(p.x-mx),y:r1(p.y-my)}));
+  const walls=P.map((a,i)=>{const b=P[(i+1)%P.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy)||1;return {i,a,u:{x:dx/l,y:dy/l},len:l,open:open.includes(i)};});
+  const proj=(x,z)=>{const p={x:x-mx,y:z-my};let best=null;for(const w of walls){if(w.open)continue;const t=clamp((p.x-w.a.x)*w.u.x+(p.y-w.a.y)*w.u.y,0,w.len);const d=Math.hypot(w.a.x+w.u.x*t-p.x,w.a.y+w.u.y*t-p.y);if(!best||d<best.d)best={d,wall:w.i,t};}return best;};
+  const openings=[],services=[],found=[];
+  for(const [key,type] of [['doors','puerta'],['windows','ventana'],['openings','paso']]) for(const el of (Array.isArray(room[key])?room[key]:[])){const e=parse(el);if(!e)continue;const b=proj(e.cx,e.cz);if(!b||b.d>60)continue;
+    openings.push({id:uid(),type,wall:b.wall,x:r1(clamp(b.t-e.w/2,0,Math.max(0,walls[b.wall].len-e.w))),w:r1(e.w),h:r1(e.h),sill:Math.max(0,r1(e.cy-e.h/2-floorY))});}
+  const inst=(Array.isArray(mk.instalaciones)?mk.instalaciones:[]).filter(f=>f&&SERV_T[f.tipo]&&Number.isFinite(f.x)&&Number.isFinite(f.z));
+  for(const f of inst){const b=proj(f.x*100,f.z*100);if(!b||b.d>80)continue;const s={id:uid(),type:f.tipo,wall:b.wall,x:r1(b.t)};if(Number.isFinite(f.altura_cm))s.h=R(clamp(f.altura_cm,0,400));services.push(s);}
+  const es={sink:'fregadero',stove:'placa',oven:'horno',refrigerator:'frigorífico',dishwasher:'lavavajillas',washerDryer:'lavadora',storage:'mueble',table:'mesa',chair:'silla'};
+  for(const el of (Array.isArray(room.objects)?room.objects:[])){const e=parse(el);if(!e)continue;const b=proj(e.cx,e.cz);if(!b)continue;
+    const map={sink:'agua',stove:'humos',oven:'humos'};if(map[e.cat]&&!services.some(s=>s.type===map[e.cat]))services.push({id:uid(),type:map[e.cat],wall:b.wall,x:r1(b.t)});
+    found.push(`${es[e.cat]||esc(e.cat)} (${R(e.w)} cm) junto a la pared ${L(b.wall)}`);}
+  const med=(Array.isArray(mk.medidas)?mk.medidas:[]).filter(m=>m&&Number.isFinite(m.cm)).map(m=>`- ${str(m.etiqueta,80)||'Medida'}: ${fmt(m.cm,1)} cm`).join('\n');
+  const fecha=typeof mk.fecha==='string'&&!isNaN(Date.parse(mk.fecha))?' del '+new Date(mk.fecha).toLocaleDateString('es-ES'):'';
+  const extra=[contour?.merged?`${contour.merged} tramo${contour.merged>1?'s':''} de pared unido${contour.merged>1?'s':''}`:'',contour?.dropped?`${contour.dropped} tabique${contour.dropped>1?'s':''} o tramo${contour.dropped>1?'s':''} suelto${contour.dropped>1?'s':''} fuera del contorno`:'',open.length?`${open.length} lado${open.length>1?'s':''} abierto${open.length>1?'s':''} (sin pared)`:''].filter(Boolean).join(', ');
+  const notes=`Escaneo ${mk.formato==='mkpkr-scan'?'de Mkpkr Scan':'de RoomPlan'}${fecha}: ${P.length} paredes, ${openings.length} huecos${services.length?`, ${services.length} instalaciones`:''}${extra?' ('+extra+')':''}.`+(found.length?` Detectado: ${found.join(', ')}.`:'')+(med?`\nMedidas con la cinta AR:\n${med}`:'');
+  return {pts:P,open,real,height,openings,services,name:str(mk.nombre,120),notes,via:contour?'contorno':'app'};
+}
+async function importRoomPlan(j){
+  const dr=parseRoomPlan(j);
+  const ok=await applyRoomDraft(dr);
+  if(ok){toast(dr.open.length?'Escaneo importado. Tiene un lado abierto: revísalo en «Estancia».':'Escaneo importado');location.hash='#estancia';}
+  return ok;
 }
 

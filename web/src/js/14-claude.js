@@ -20,8 +20,9 @@ Identifica lo que importa para diseñar y presupuestar la cocina nueva: tomas de
 Responde SOLO con JSON con esta forma:
 {"resumen":"2-3 frases","elementos":[{"tipo":"toma_agua|desague|gas|salida_humos|enchufe|ventana|puerta|radiador|caldera|pilar|bajante|otro","descripcion":"dónde está y cómo es","medida":"estimación con rango o vacío","confianza":"alta|media|baja"}],"estado":"estado general de la estancia","recomendaciones":["..."],"comprobar":["qué medir o revisar en la visita"]}`;
   try{
-    const r=await sampleP.json(prompt,{images:sel.map(f=>f.blob),modelTier:'default'});
-    S.findings=[r,...(S.findings||[])].slice(0,5);save();renderFindings();m.textContent='Análisis listo.';
+    const r=sanitizeFinding(await sampleP.json(prompt,{images:sel.map(f=>f.blob),modelTier:'default'}));
+    if(!r){m.textContent='La respuesta de Claude no tiene el formato esperado. Vuelve a intentarlo.';b.disabled=false;return;}
+    noExample();S.findings=[r,...(S.findings||[])].slice(0,5);save();renderFindings();m.textContent='Análisis listo.';
   }catch(e){m.textContent=e?.code==='not_granted'?'Sin permiso para usar Claude.':e?.code==='rate_limited'?'Demasiadas peticiones; prueba en un minuto.':'No se ha podido analizar: '+(e?.message||e);}
   b.disabled=false;
 });
@@ -32,20 +33,21 @@ function renderFindings(){
    +(r.estado?`<p class="small"><b>Estado:</b> ${esc(r.estado)}</p>`:'')
    +((r.comprobar||[]).length?`<p class="small"><b>Comprobar en obra:</b> ${esc(r.comprobar.join(' · '))}</p>`:'')
    +`<div class="row"><button class="btn sm" id="find-notes">Pasar a notas de obra</button></div>`;
-  $('#find-notes').onclick=()=>{S.notes=(S.notes?S.notes+'\n\n':'')+'Análisis de la visita (Claude): '+(r.resumen||'')+'\n'+(r.elementos||[]).map(x=>`- ${T[x.tipo]||x.tipo}: ${x.descripcion}${x.medida?' ('+x.medida+')':''}`).join('\n')+((r.comprobar||[]).length?'\nComprobar: '+r.comprobar.join('; '):'');$('#notes').value=S.notes;save();toast('Añadido a notas de obra');};
+  $('#find-notes').onclick=()=>{noExample();S.notes=(S.notes?S.notes+'\n\n':'')+'Análisis de la visita (Claude): '+(r.resumen||'')+'\n'+(r.elementos||[]).map(x=>`- ${T[x.tipo]||x.tipo}: ${x.descripcion}${x.medida?' ('+x.medida+')':''}`).join('\n')+((r.comprobar||[]).length?'\nComprobar: '+r.comprobar.join('; '):'');$('#notes').value=S.notes;save();toast('Añadido a notas de obra');};
 }
 $('#ai-memo').addEventListener('click',async()=>{
   if(!sampleP)return;const b=budget();const btn=$('#ai-memo'),msg=$('#ai-memo-msg');btn.disabled=true;msg.textContent='Redactando…';
-  const mods=S.modules.filter(m=>m.type!=='regleta').map(m=>`pared ${L(m.wall)}: ${TYPES[m.type].n} ${m.w} cm`).join('; ');
+  const mods=S.modules.filter(m=>!NO_MUEBLE.has(m.type)).map(m=>`pared ${L(m.wall)}: ${TYPES[m.type].n} ${m.w} cm`).join('; ');
   const prompt=`Redacta en español de España la memoria de una propuesta de reforma de cocina para el cliente final, en texto plano (sin markdown, sin asteriscos), 250-350 palabras, tono profesional y cercano. Secciones con título en mayúsculas: LA PROPUESTA, DISTRIBUCIÓN, MATERIALES Y ELECTRODOMÉSTICOS, TRABAJOS INCLUIDOS, PRESUPUESTO, CONDICIONES. No inventes datos que no estén aquí; en condiciones indica que las medidas se confirman en obra antes de fabricar y que el presupuesto es válido 30 días.
-Proyecto: ${S.project.name||'sin nombre'}.
-Estancia: ${fmt(G.area/1e4,2)} m², altura ${S.height} cm, paredes ${G.walls.map(w=>L(w.i)+' '+R(w.len)+' cm').join(', ')}.
+Proyecto: ${S.project.name||'sin nombre'}${S.client.name?`, cliente ${S.client.name}`:''}.
+Estancia: ${fmt(G.area/1e4,2)} m², altura ${S.height} cm, paredes ${G.walls.map(w=>L(w.i)+' '+R(w.len)+' cm'+(w.open?' (lado abierto)':'')).join(', ')}.
 Distribución en paredes ${S.design.walls.map(L).join(', ')}; módulos: ${mods}.
 Acabados: frentes ${FRONTS[S.finish.front].n}, encimera ${COUNTERS[S.finish.counter].n}, gama ${GAMA[S.design.gama].n}.
 Notas de obra: ${(S.notes||'').slice(0,1500)}
-Partidas incluidas: ${b.lines.filter(l=>l.on).map(l=>`${l.label} ${fmt(l.q,2)} ${l.unit} = ${R(l.amount)} €`).join('; ')}.
-Base imponible ${R(b.base)} €, IVA ${S.iva}% ${R(b.iva)} €, total ${R(b.total)} €.`;
-  try{const r=await sampleP(prompt,{onText:({text})=>{$('#memo').value=text;},modelTier:'default'});S.memo=r.text;$('#memo').value=r.text;save();msg.textContent='Memoria lista. Puedes editarla.';}
+Partidas incluidas (precios finales al cliente, IVA aparte): ${b.lines.filter(l=>l.on).map(l=>`${l.label} ${fmt(l.q,2)} ${l.unit} = ${eur(l.amount)}`).join('; ')}.
+Suma ${eur(b.sub)}${b.discount?`, descuento ${fmt(S.discount,1)} % (−${eur(b.discount)})`:''}, base imponible ${eur(b.base)}, IVA ${S.iva} % ${eur(b.iva)}, total ${eur(b.total)}.
+No menciones costes internos, márgenes ni beneficios.`;
+  try{const r=await sampleP(prompt,{onText:({text})=>{$('#memo').value=text;},modelTier:'default'});noExample();S.memo=r.text;$('#memo').value=r.text;save();msg.textContent='Memoria lista. Puedes editarla.';}
   catch(e){msg.textContent=e?.code==='not_granted'?'Sin permiso para usar Claude.':'No se ha podido redactar: '+(e?.message||e);}
   btn.disabled=false;
 });

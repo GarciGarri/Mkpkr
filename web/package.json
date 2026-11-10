@@ -1,0 +1,17 @@
+{
+  "name": "mkpkr-cocinas",
+  "private": true,
+  "description": "Mkpkr Cocinas: fuentes, compilación a cocinas.html y pruebas.",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "test": "node build.mjs --check && node tests/run.cjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.10.2",
+    "jspdf": "2.5.1",
+    "jszip": "3.10.1",
+    "playwright": "1.63.0",
+    "three": "0.128.0"
+  }
+}

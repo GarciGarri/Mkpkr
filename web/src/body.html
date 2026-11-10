@@ -4,20 +4,20 @@
       <span class="tape"><i></i>Toma de datos · plano · presupuesto</span>
       <h1>Mkpkr Cocinas</h1>
       <div class="projname">
-        <input id="pname" type="text" aria-label="Nombre del proyecto" placeholder="Nombre del proyecto o dirección">
+        <input id="pname" type="text" aria-label="Nombre del proyecto" placeholder="Nombre del proyecto o dirección" maxlength="120">
         <span id="exflag" class="example-flag" hidden>Proyecto de ejemplo</span>
       </div>
     </div>
     <div class="actions">
-      <button class="btn" id="btn-new">Nuevo proyecto</button>
-      <button class="btn" id="btn-confirm-new" hidden>Confirmar: borrar todo</button>
-      <label class="btn" for="f-project">Abrir proyecto o escaneo</label>
+      <a class="btn" href="#proyectos" id="btn-projects">Proyectos</a>
+      <button class="btn" id="btn-undo" disabled title="Deshacer el último cambio">Deshacer</button>
+      <label class="btn" for="f-project">Abrir archivo</label>
       <input id="f-project" type="file" accept=".json,application/json" hidden>
-      <button class="btn primary" id="btn-zip">Exportar paquete .zip</button>
+      <button class="btn primary" id="btn-zip">Exportar paquete</button>
     </div>
   </header>
 
-  <section class="summary" aria-label="Resumen">
+  <section class="summary" aria-label="Resumen del proyecto">
     <div><span>Superficie</span><b id="s-area">–</b></div>
     <div><span>Perímetro</span><b id="s-perim">–</b></div>
     <div><span>Altura libre</span><b id="s-h">–</b></div>
@@ -28,35 +28,48 @@
 
   <nav class="tabs" aria-label="Etapas">
     <a href="#captura"><small>1</small>Captura</a>
-    <a href="#estancia"><small>2</small>Estancia</a>
-    <a href="#diseno"><small>3</small>Diseño</a>
+    <a href="#estancia"><small>2</small>Estancia<span class="badge" data-badge="estancia" hidden></span></a>
+    <a href="#diseno"><small>3</small>Diseño<span class="badge" data-badge="diseno" hidden></span></a>
     <a href="#planos"><small>4</small>Planos</a>
     <a href="#presupuesto"><small>5</small>Presupuesto</a>
     <a href="#render"><small>6</small>Render</a>
   </nav>
 
+<main id="main">
+  <!-- ============ PROYECTOS ============ -->
+  <section id="v-proyectos" data-view hidden>
+    <div class="panel">
+      <div class="panel-head"><h2>Proyectos</h2>
+        <div class="row"><button class="btn primary" id="p-new">Proyecto nuevo</button><button class="btn" id="p-example">Abrir un ejemplo</button></div>
+      </div>
+      <p class="hint">Los proyectos se guardan en este navegador. Para pasarlos a otro equipo o hacer copia, usa «Exportar paquete» (incluye el proyecto) y «Abrir archivo».</p>
+      <label class="f" style="max-width:340px">Buscar<input id="p-search" type="text" placeholder="Nombre o cliente"></label>
+      <div class="tablewrap"><table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Modificado</th><th class="r">Total</th><th><span class="sr">Acciones</span></th></tr></thead><tbody id="p-table"></tbody></table></div>
+    </div>
+  </section>
+
   <!-- ============ 1 CAPTURA ============ -->
-  <section id="v-captura" data-view>
+  <section id="v-captura" data-view hidden>
     <div class="grid even">
       <div class="stack">
         <div class="panel">
-          <div class="panel-head"><h2>Escaneo LiDAR</h2><span class="muted small">RoomPlan JSON · PLY · OBJ · XYZ</span></div>
+          <div class="panel-head"><h2>Escaneo LiDAR</h2><span class="muted small">Mkpkr Scan · RoomPlan · PLY · OBJ · XYZ</span></div>
           <div class="drop" id="drop-scan">
             <p><b>Arrastra el archivo del escaneo</b> o elígelo.</p>
-            <p class="hint">Con la app <b>Mkpkr Scan</b> del iPhone o iPad Pro pulsa «Enviar a Mkpkr Cocinas» y elige aquí el archivo .json: trae paredes, puertas, ventanas, electrodomésticos y tus medidas sueltas. También valen la nube de puntos o la malla en PLY/OBJ de Polycam, 3D Scanner App o Scaniverse.</p>
+            <p class="hint">Con la app <b>Mkpkr Scan</b> pulsa «Enviar a Mkpkr Cocinas» y elige aquí el archivo .json: trae la planta, puertas, ventanas, electrodomésticos, instalaciones y tus medidas. También valen la nube de puntos o la malla en PLY/OBJ de Polycam, 3D Scanner App o Scaniverse.</p>
             <label class="btn" for="f-scan">Elegir archivo de escaneo</label>
             <input id="f-scan" type="file" accept=".ply,.obj,.xyz,.txt,.pts,.csv,.json" hidden>
           </div>
           <div id="scan-tools" hidden class="stack">
-            <p class="small" id="scan-info"></p>
+            <p class="small" id="scan-info" aria-live="polite"></p>
             <div class="fields">
               <label class="f">Eje vertical<select id="scan-up"><option value="auto">Automático</option><option value="y">Y</option><option value="z">Z</option><option value="x">X</option></select></label>
               <label class="f">Unidades<select id="scan-unit"><option value="auto">Automático</option><option value="m">Metros</option><option value="cm">Centímetros</option><option value="mm">Milímetros</option></select></label>
               <label class="f">Corte desde (cm)<input id="scan-z0" type="number" value="100" step="10"></label>
               <label class="f">Corte hasta (cm)<input id="scan-z1" type="number" value="180" step="10"></label>
             </div>
-            <div class="canvasbox"><canvas id="scan-canvas" width="900" height="560" aria-label="Vista en planta del corte del escaneo. Pulsa para marcar esquinas."></canvas></div>
-            <p class="hint">Vista en planta del corte horizontal. Pulsa en cada esquina de la pared, en orden, y vuelve a la primera para cerrar. Con «Ortogonal», los tramos se ajustan a 90°.</p>
+            <div class="canvasbox"><canvas id="scan-canvas" width="900" height="560" tabindex="0" aria-label="Vista en planta del corte del escaneo. Pulsa en cada esquina. Con teclado: flechas para mover la cruz (Mayúsculas para ir más rápido) e Intro para marcar."></canvas></div>
+            <p class="hint">Pulsa en cada esquina de la pared, en orden, y vuelve a la primera para cerrar. Con «Ortogonal», los tramos se ajustan a 90°. También funciona con teclado: flechas e Intro.</p>
             <div class="row">
               <label class="chk"><input type="checkbox" id="scan-ortho" checked> Ortogonal</label>
               <button class="btn sm" id="scan-auto">Ajuste rectangular automático</button>
@@ -68,7 +81,7 @@
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Notas de obra</h2><span class="muted small">Se incluyen en el paquete</span></div>
-          <textarea id="notes" rows="6" placeholder="Estado de paredes, ubicación de la caldera, desniveles, accesos para subir material…"></textarea>
+          <textarea id="notes" rows="6" aria-label="Notas de obra" placeholder="Estado de paredes, ubicación de la caldera, desniveles, accesos para subir material…"></textarea>
         </div>
       </div>
 
@@ -77,7 +90,7 @@
           <div class="panel-head"><h2>Vídeo y fotos de la visita</h2></div>
           <div class="drop" id="drop-media">
             <p><b>Sube el vídeo del recorrido o fotos.</b></p>
-            <p class="hint">Saca fotogramas, mide sobre ellos con una referencia conocida (una puerta, un azulejo, un folio) y pide a Claude que identifique tomas, huecos y puntos a revisar.</p>
+            <p class="hint">Saca fotogramas, mide sobre ellos con una referencia conocida (una puerta, un azulejo, un folio) y pide a Claude que identifique tomas, huecos y puntos a revisar. Las fotos se guardan con el proyecto en este navegador.</p>
             <label class="btn" for="f-media">Elegir vídeo o fotos</label>
             <input id="f-media" type="file" accept="video/*,image/*" multiple hidden>
           </div>
@@ -94,19 +107,20 @@
               <button class="btn sm" id="m-ref" aria-pressed="false">1 · Marcar referencia</button>
               <button class="btn sm" id="m-measure" aria-pressed="false">2 · Medir</button>
               <button class="btn sm ghost" id="m-clear">Borrar medidas</button>
+              <button class="btn sm ghost danger" id="m-del">Quitar foto</button>
             </div>
             <div class="row" id="ref-row" hidden>
               <label class="f" style="flex:1 1 160px">Longitud real de la referencia (cm)<input id="ref-cm" type="number" value="203" step="0.5"></label>
               <label class="f" style="flex:1 1 200px">Referencias habituales<select id="ref-preset">
                 <option value="">Elegir…</option><option value="203">Alto de puerta estándar · 203</option><option value="72.5">Hoja de puerta · 72,5</option><option value="82.5">Hoja de puerta · 82,5</option><option value="29.7">Folio A4, lado largo · 29,7</option><option value="60">Baldosa 60 × 60 · 60</option><option value="20">Azulejo 20 × 20 · 20</option><option value="90">Encimera desde el suelo · 90</option></select></label>
             </div>
-            <div class="canvasbox"><canvas id="m-canvas" width="1280" height="720" aria-label="Fotograma para medir"></canvas></div>
+            <div class="canvasbox"><canvas id="m-canvas" width="1280" height="720" tabindex="0" aria-label="Fotograma para medir. Con teclado: flechas para mover la cruz e Intro para marcar un punto."></canvas></div>
             <p class="hint">La medida sobre foto solo es fiable en el mismo plano y a la misma distancia que la referencia (±3–5 %). Para cotas de fabricación, usa el escaneo o el metro láser.</p>
             <ul class="checks" id="m-list"></ul>
           </div>
           <div class="row">
             <button class="btn primary" id="ai-frames" disabled>Analizar fotogramas con Claude</button>
-            <span class="muted small" id="ai-frames-msg"></span>
+            <span class="muted small" id="ai-frames-msg" aria-live="polite"></span>
           </div>
           <div class="findings" id="findings"></div>
         </div>
@@ -125,30 +139,32 @@
             <label class="f">Altura libre (cm)<input id="room-h" type="number" step="1" min="200" max="400"></label>
           </div>
           <div class="fields" id="shape-rect">
-            <label class="f">Ancho (pared A)<input id="r-w" type="number" step="1" min="100"></label>
-            <label class="f">Fondo (pared B)<input id="r-d" type="number" step="1" min="100"></label>
+            <label class="f">Ancho (pared A)<input id="r-w" type="number" step="0.5" min="30"></label>
+            <label class="f">Fondo (pared B)<input id="r-d" type="number" step="0.5" min="30"></label>
           </div>
           <div class="fields" id="shape-L" hidden>
-            <label class="f">Ancho total<input id="l-W" type="number" step="1"></label>
-            <label class="f">Fondo total<input id="l-D" type="number" step="1"></label>
-            <label class="f">Entrante ancho<input id="l-w2" type="number" step="1"></label>
-            <label class="f">Entrante fondo<input id="l-d2" type="number" step="1"></label>
+            <label class="f">Ancho total<input id="l-W" type="number" step="0.5"></label>
+            <label class="f">Fondo total<input id="l-D" type="number" step="0.5"></label>
+            <label class="f">Entrante ancho<input id="l-w2" type="number" step="0.5"></label>
+            <label class="f">Entrante fondo<input id="l-d2" type="number" step="0.5"></label>
           </div>
-          <div class="tablewrap"><table><thead><tr><th>Pared</th><th class="r">Longitud</th><th>Huecos y tomas</th></tr></thead><tbody id="wall-table"></tbody></table></div>
+          <p class="hint" id="laser-hint" hidden>Escribe la medida real de cada pared tomada con láser a la altura de la encimera (unos 90 cm). La planta se reajusta y la pared queda marcada como verificada. Marca «Abierta» si ese lado no tiene pared.</p>
+          <div class="tablewrap"><table><thead><tr><th>Pared</th><th class="r">Longitud</th><th class="r" data-poly>Medida láser</th><th data-poly>Abierta</th><th>Huecos y tomas</th></tr></thead><tbody id="wall-table"></tbody></table></div>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Puertas y ventanas</h2><button class="btn sm" id="add-open">Añadir hueco</button></div>
-          <p class="hint">Distancia medida desde el inicio de la pared (la esquina de su letra), en cm.</p>
-          <div class="tablewrap"><table><thead><tr><th>Tipo</th><th>Pared</th><th class="r">Desde</th><th class="r">Ancho</th><th class="r">Alto</th><th class="r">Antepecho</th><th></th></tr></thead><tbody id="open-table"></tbody></table></div>
+          <p class="hint">Distancia desde el inicio de la pared (la esquina de su letra), en cm.</p>
+          <div class="tablewrap"><table><thead><tr><th>Tipo</th><th>Pared</th><th class="r">Desde</th><th class="r">Ancho</th><th class="r">Alto</th><th class="r">Antepecho</th><th><span class="sr">Acciones</span></th></tr></thead><tbody id="open-table"></tbody></table></div>
+          <ul class="checks" id="open-issues"></ul>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Instalaciones existentes</h2><button class="btn sm" id="add-serv">Añadir toma</button></div>
           <p class="hint">La toma de agua decide dónde va el fregadero; la salida de humos, la campana.</p>
-          <div class="tablewrap"><table><thead><tr><th>Toma</th><th>Pared</th><th class="r">Desde</th><th class="r">Altura</th><th></th></tr></thead><tbody id="serv-table"></tbody></table></div>
+          <div class="tablewrap"><table><thead><tr><th>Toma</th><th>Pared</th><th class="r">Desde</th><th class="r">Altura</th><th><span class="sr">Acciones</span></th></tr></thead><tbody id="serv-table"></tbody></table></div>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-head"><h2>Planta de la estancia</h2><span class="muted small">cm</span></div>
+        <div class="panel-head"><h2>Planta de la estancia</h2><button class="btn sm ghost" data-zoom="room-svg" aria-pressed="false">Ampliar</button></div>
         <div class="svgbox" id="room-svg"></div>
         <div class="legend" id="legend"></div>
       </div>
@@ -179,20 +195,31 @@
             <label class="chk"><input type="checkbox" id="d-dw"> Lavavajillas</label>
             <label class="chk"><input type="checkbox" id="d-uppers"> Muebles altos</label>
           </div>
-          <div class="row"><button class="btn primary" id="d-auto">Recalcular distribución</button><span class="muted small">Sustituye los cambios manuales de los módulos.</span></div>
+          <div class="row"><button class="btn primary" id="d-auto">Recalcular distribución</button><button class="btn" id="d-unlock">Desbloquear todos</button><span class="muted small" id="lock-note"></span></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h2>Comprobaciones</h2></div>
+          <div class="panel-head"><h2>Comprobaciones</h2><label class="chk small"><input type="checkbox" id="chk-all"> Ver también lo correcto</label></div>
           <ul class="checks" id="checks"></ul>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Módulos</h2><span class="muted small" id="mod-count"></span></div>
-          <div class="tablewrap"><table><thead><tr><th>Pared</th><th>Nivel</th><th>Tipo</th><th class="r">Desde</th><th class="r">Ancho</th><th></th></tr></thead><tbody id="mod-table"></tbody></table></div>
+          <p class="hint">Al cambiar un módulo a mano queda bloqueado (🔒): «Recalcular» lo respeta mientras quepa.</p>
+          <div class="tablewrap"><table><thead><tr><th>Pared</th><th>Nivel</th><th>Tipo</th><th class="r">Desde</th><th class="r">Ancho</th><th>Bloq.</th><th><span class="sr">Acciones</span></th></tr></thead><tbody id="mod-table"></tbody></table></div>
+          <details class="add-mod"><summary>Añadir módulo</summary>
+            <div class="fields">
+              <label class="f">Pared<select id="am-wall"></select></label>
+              <label class="f">Nivel<select id="am-level"><option value="low">Bajo</option><option value="high">Alto</option><option value="col">Columna</option></select></label>
+              <label class="f">Tipo<select id="am-type"></select></label>
+              <label class="f">Desde (cm)<input id="am-x" type="number" step="0.5" value="0"></label>
+              <label class="f">Ancho (cm)<input id="am-w" type="number" step="0.5" value="60"></label>
+            </div>
+            <div class="row"><button class="btn primary sm" id="am-add">Añadir y bloquear</button><span class="muted small" id="am-msg" aria-live="polite"></span></div>
+          </details>
         </div>
       </div>
       <div class="stack">
         <div class="panel">
-          <div class="panel-head"><h2>Planta de montaje</h2><span class="muted small">cm · altos en discontinua</span></div>
+          <div class="panel-head"><h2>Planta de montaje</h2><span class="muted small">cm · altos en discontinua</span><button class="btn sm ghost" data-zoom="design-svg" aria-pressed="false">Ampliar</button></div>
           <div class="svgbox" id="design-svg"></div>
         </div>
       </div>
@@ -204,7 +231,7 @@
     <div class="stack">
       <div class="panel">
         <div class="panel-head"><h2>Planta acotada</h2>
-          <div class="row"><button class="btn sm" id="dl-svg">Descargar SVG</button><button class="btn sm" id="dl-dxf">Descargar DXF (en .zip)</button></div>
+          <div class="row"><button class="btn sm ghost" data-zoom="plan-svg" aria-pressed="false">Ampliar</button><button class="btn sm" id="dl-svg">Descargar SVG</button><button class="btn sm" id="dl-dxf">Descargar DXF (en .zip)</button></div>
         </div>
         <div class="svgbox" id="plan-svg"></div>
       </div>
@@ -218,22 +245,58 @@
   <!-- ============ 5 PRESUPUESTO ============ -->
   <section id="v-presupuesto" data-view hidden>
     <div class="grid">
-      <div class="panel">
-        <div class="panel-head"><h2>Presupuesto</h2><button class="btn sm" id="dl-csv">Descargar CSV</button></div>
-        <p class="hint">Precios orientativos de mercado en España (2026) para gama media; cambia cualquier precio y se guarda en el proyecto. Las cantidades salen del diseño.</p>
-        <div class="tablewrap"><table><thead><tr><th></th><th>Partida</th><th class="r">Cant.</th><th>Ud.</th><th class="r">Precio</th><th class="r">Importe</th></tr></thead><tbody id="bud-table"></tbody><tfoot id="bud-foot"></tfoot></table></div>
-        <div class="fields">
-          <label class="f">Margen (%)<input id="b-margin" type="number" step="1" min="0"></label>
-          <label class="f">IVA (%)<input id="b-iva" type="number" step="1" min="0"></label>
-          <label class="f">Encimera<select id="b-counter"></select></label>
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-head"><h2>Presupuesto</h2>
+            <div class="seg" role="group" aria-label="Vista del presupuesto"><button id="bv-client" aria-pressed="true">Cliente</button><button id="bv-internal" aria-pressed="false">Interna</button></div>
+          </div>
+          <p class="hint" id="bud-hint"></p>
+          <div class="tablewrap"><table class="bud"><thead id="bud-head"></thead><tbody id="bud-table"></tbody><tfoot id="bud-foot"></tfoot></table></div>
+          <div class="row" id="extra-row" hidden><button class="btn sm" id="add-extra">Añadir partida</button></div>
+          <div class="fields">
+            <label class="f">Margen sobre coste (%)<input id="b-margin" type="number" step="1" min="0" max="300"></label>
+            <label class="f">Descuento al cliente (%)<input id="b-disc" type="number" step="0.5" min="0" max="100"></label>
+            <label class="f">IVA (%)<input id="b-iva" type="number" step="1" min="0" max="30"></label>
+            <label class="f">Encimera<select id="b-counter"></select></label>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="dl-pdf">Descargar PDF para el cliente</button>
+            <button class="btn" id="dl-csv">CSV del cliente</button>
+            <button class="btn ghost" id="dl-csv-int">CSV interno</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Cliente y presupuesto</h2></div>
+          <div class="fields">
+            <label class="f">Cliente<input id="c-name" type="text" maxlength="120" data-client="name"></label>
+            <label class="f">NIF / DNI<input id="c-nif" type="text" maxlength="20" data-client="nif"></label>
+            <label class="f">Teléfono<input id="c-phone" type="text" maxlength="30" data-client="phone"></label>
+            <label class="f">Correo<input id="c-email" type="text" maxlength="120" data-client="email"></label>
+          </div>
+          <label class="f">Dirección de la obra<input id="c-address" type="text" maxlength="200" data-client="address"></label>
+          <div class="fields">
+            <label class="f">N.º de presupuesto<input id="q-number" type="text" maxlength="30" placeholder="Se asigna al generar el PDF"></label>
+            <label class="f">Fecha<input id="q-date" type="date"></label>
+            <label class="f">Validez (días)<input id="q-valid" type="number" min="1" max="365" step="1"></label>
+          </div>
+          <details><summary>Datos de tu empresa (para todos los proyectos)</summary>
+            <div class="fields">
+              <label class="f">Empresa<input type="text" maxlength="120" data-emp="name"></label>
+              <label class="f">NIF<input type="text" maxlength="20" data-emp="nif"></label>
+              <label class="f">Teléfono<input type="text" maxlength="30" data-emp="phone"></label>
+              <label class="f">Correo<input type="text" maxlength="120" data-emp="email"></label>
+            </div>
+            <label class="f">Dirección<input type="text" maxlength="200" data-emp="address"></label>
+            <label class="f">Condiciones (aparecen al pie del presupuesto)<textarea rows="4" maxlength="2000" data-emp="conditions"></textarea></label>
+          </details>
         </div>
       </div>
       <div class="stack">
         <div class="panel">
           <div class="panel-head"><h2>Memoria para el cliente</h2></div>
-          <p class="hint">Claude redacta la descripción de la propuesta a partir del diseño y el presupuesto. Puedes editarla; va en el paquete.</p>
-          <div class="row"><button class="btn primary" id="ai-memo" disabled>Redactar memoria con Claude</button><span class="muted small" id="ai-memo-msg"></span></div>
-          <textarea id="memo" rows="16" placeholder="La memoria aparecerá aquí."></textarea>
+          <p class="hint">Claude redacta la descripción de la propuesta a partir del diseño y del presupuesto de cliente (sin costes ni margen). Puedes editarla; va en el PDF y en el paquete.</p>
+          <div class="row"><button class="btn primary" id="ai-memo" disabled>Redactar memoria con Claude</button><span class="muted small" id="ai-memo-msg" aria-live="polite"></span></div>
+          <textarea id="memo" rows="16" aria-label="Memoria para el cliente" placeholder="La memoria aparecerá aquí."></textarea>
         </div>
       </div>
     </div>
@@ -247,7 +310,7 @@
         <div class="row">
           <button class="btn" id="r-reset">Vista general</button>
           <button class="btn" id="r-front">Vista frontal</button>
-          <button class="btn primary" id="r-png">Guardar imagen PNG</button>
+          <button class="btn primary" id="r-png">Guardar imagen (2400 px)</button>
         </div>
       </div>
       <div class="stack">
@@ -267,5 +330,7 @@
       </div>
     </div>
   </section>
+</main>
 </div>
-<div class="toast" id="toast" hidden role="status"></div>
+<div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
+<div class="dlg" id="dlg" hidden role="dialog" aria-modal="true" aria-labelledby="dlg-title"><div class="dlg-box"><h2 id="dlg-title"></h2><p id="dlg-text"></p><div class="row" id="dlg-btns"></div></div></div>

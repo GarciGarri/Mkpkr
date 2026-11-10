@@ -15,6 +15,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
   o.push(`<rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${P.bg}"/>`);
   o.push(`<path d="${d}" fill="none" stroke="${P.wall}" stroke-width="${2*T}" stroke-linejoin="miter"/>`);
   o.push(`<path d="${d}" fill="${P.floor}"/>`);
+  for(const w of g.walls) if(w.open){o.push(`<polygon points="${pstr([at(w,-T-1,0.4),at(w,w.len+T+1,0.4),at(w,w.len+T+1,-T-2),at(w,-T-1,-T-2)])}" fill="${P.bg}"/>`);o.push(`<line x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}" stroke="${P.muted}" stroke-width="1.2" stroke-dasharray="8 5"/>`);}
   // huecos
   for(const op of S.openings){const w=g.walls[op.wall];if(!w)continue;
     const p0=at(w,op.x),p1=at(w,op.x+op.w),q1=at(w,op.x+op.w,-T-1),q0=at(w,op.x,-T-1);
@@ -28,7 +29,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
   }
   // módulos
   if(mods){
-    const lows=S.modules.filter(m=>m.level!=='high'), highs=S.modules.filter(m=>m.level==='high');
+    const lows=S.modules.filter(m=>m.level!=='high'&&m.type!=='hueco'), highs=S.modules.filter(m=>m.level==='high'&&m.type!=='hueco');
     // encimera
     for(const w of g.walls){const ms=lows.filter(m=>m.wall===w.i&&m.level==='low').sort((a,b)=>a.x-b.x);let run=null;const runs=[];for(const m of ms){if(run&&Math.abs(run.e-m.x)<1)run.e=m.x+m.w;else{run={s:m.x,e:m.x+m.w};runs.push(run);}}
       for(const r of runs)o.push(`<polygon points="${pstr([at(w,r.s),at(w,r.e),at(w,r.e,62),at(w,r.s,62)])}" fill="${P.cab}" stroke="${P.line}" stroke-width="1.2"/>`);}
@@ -54,7 +55,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
       const e0=at(w,0,-T-3),e1=at(w,w.len,-T-3),e0b=at(w,0,off-5),e1b=at(w,w.len,off-5);
       o.push(`<g stroke="${P.dim}" stroke-width=".8"><line x1="${e0.x}" y1="${e0.y}" x2="${e0b.x}" y2="${e0b.y}"/><line x1="${e1.x}" y1="${e1.y}" x2="${e1b.x}" y2="${e1b.y}"/><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/></g>`);
       o.push(tick(a,w,P.dim)+tick(b,w,P.dim));
-      const tm=at(w,w.len/2,off-8);o.push(txt(tm.x,tm.y,`${L(w.i)} · ${fmt(w.len,0)}`,deg,10,P.dim,font+' font-weight="600"'));
+      const tm=at(w,w.len/2,off-8);o.push(txt(tm.x,tm.y,`${L(w.i)} · ${fmt(w.len,Math.abs(w.len-Math.round(w.len))>=0.05?1:0)}${w.open?' · abierto':''}${S.shape.type==='poly'&&S.shape.real?.[w.i]>0?' · láser':''}`,deg,10,P.dim,font+' font-weight="600"'));
       if(mods){const ms=S.modules.filter(m=>m.wall===w.i&&m.level!=='high');const hs=S.modules.filter(m=>m.wall===w.i);if(!hs.length&&!S.openings.some(o=>o.wall===w.i))continue;
         const bset=new Set([0,R(w.len)]);for(const m of ms){bset.add(R(m.x));bset.add(R(m.x+m.w));}for(const op of S.openings.filter(o=>o.wall===w.i)){bset.add(R(op.x));bset.add(R(op.x+op.w));}
         const bs=[...bset].filter(v=>v>=0&&v<=R(w.len)).sort((x,y)=>x-y);const off2=-(T+58);

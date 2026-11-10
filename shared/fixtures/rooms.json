@@ -1,0 +1,17 @@
+{
+  "description": "Casos de reconstrucción de planta compartidos por Mkpkr Cocinas (web/tests/02-import.test.cjs) y Mkpkr Scan (ios/MkpkrScan/Tests/main.swift). Polígonos en metros (x, z). Cada lado se convierte en un tramo de pared; 'split' parte un lado en dos tramos (al 40 %), 'drop' quita lados (estancia abierta), 'extra' añade tramos sueltos [x1, z1, x2, z2], 'shrink' acorta (positivo) o alarga (negativo) cada tramo por ambos extremos, 'rot' gira el conjunto (radianes) y después se desplaza (1,7; −0,9). El orden de los tramos se baraja con (i·7 + 3) mod n. 'expect.area' en m², 'expect.walls' paredes del contorno (incluidos lados abiertos), 'expect.open' lados abiertos; 'reject': true significa que la reconstrucción debe negarse.",
+  "cases": [
+    { "name": "rectángulo 3,6 × 3,0 girado 23°", "poly": [[0,0],[3.6,0],[3.6,3],[0,3]], "rot": 0.4, "expect": { "area": 10.8, "walls": 4, "open": 0 } },
+    { "name": "rectángulo con tramos cortos en las esquinas", "poly": [[0,0],[3.6,0],[3.6,3],[0,3]], "shrink": 0.05, "expect": { "area": 10.8, "walls": 4, "open": 0 } },
+    { "name": "rectángulo con tramos que se pasan de la esquina", "poly": [[0,0],[3.6,0],[3.6,3],[0,3]], "shrink": -0.06, "expect": { "area": 10.8, "walls": 4, "open": 0 } },
+    { "name": "L 4,2 × 3,6 con entrante 1,5 × 1,4", "poly": [[0,0],[4.2,0],[4.2,2.2],[2.7,2.2],[2.7,3.6],[0,3.6]], "expect": { "area": 13.02, "walls": 6, "open": 0 } },
+    { "name": "L estrecha 5,0 × 4,0 con entrante 3,5 × 3,0", "poly": [[0,0],[5,0],[5,1],[1.5,1],[1.5,4],[0,4]], "rot": 0.2, "expect": { "area": 9.5, "walls": 6, "open": 0 } },
+    { "name": "U con entrante central", "poly": [[0,0],[4,0],[4,3],[2.6,3],[2.6,1.8],[1.4,1.8],[1.4,3],[0,3]], "expect": { "area": 10.56, "walls": 8, "open": 0 } },
+    { "name": "pared partida en dos tramos", "poly": [[0,0],[3.6,0],[3.6,3],[0,3]], "split": [0], "expect": { "area": 10.8, "walls": 4, "open": 0 } },
+    { "name": "cocina abierta: falta una pared", "poly": [[0,0],[3.6,0],[3.6,3],[0,3]], "drop": [2], "expect": { "area": 10.8, "walls": 4, "open": 1 } },
+    { "name": "tabique interior suelto", "poly": [[0,0],[4,0],[4,3],[0,3]], "extra": [[2,1.2,2,2.2]], "expect": { "area": 12.0, "walls": 4, "open": 0 } },
+    { "name": "trapecio con una pared a 11°", "poly": [[0,0],[4,0],[3.4,3],[0,3]], "expect": { "area": 11.1, "walls": 4, "open": 0 } },
+    { "name": "una sola pared", "poly": [[0,0],[3.6,0]], "drop": [1], "reject": true },
+    { "name": "paredes sueltas que no se tocan", "poly": [], "extra": [[0,0,3,0],[0,2.5,0,4],[3.5,1,5,1]], "reject": true }
+  ]
+}
