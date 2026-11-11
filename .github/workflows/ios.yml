@@ -66,12 +66,10 @@ jobs:
           git push -f origin mkpkr-scan-ultima
       - name: Publicar descarga directa (Releases)
         if: github.ref_name == env.RELEASE_BRANCH
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: mkpkr-scan-ultima
-          name: Mkpkr Scan ${{ env.VERSION }} (${{ github.run_number }})
-          make_latest: true
-          body: |
-            Mkpkr Scan ${{ env.VERSION }}, compilación ${{ github.run_number }} (commit ${{ github.sha }}).
-            Descarga `MkpkrScan-sin-firmar.ipa` e instálalo en el iPhone con Sideloadly (Windows) usando tu Apple ID.
-          files: ios/MkpkrScan/MkpkrScan-sin-firmar.ipa
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete mkpkr-scan-ultima --yes || true
+          gh release create mkpkr-scan-ultima ios/MkpkrScan/MkpkrScan-sin-firmar.ipa \
+            --title "Mkpkr Scan ${VERSION} (${{ github.run_number }})" --latest \
+            --notes "Mkpkr Scan ${VERSION}, compilación ${{ github.run_number }} (commit ${{ github.sha }}). Descarga MkpkrScan-sin-firmar.ipa e instálalo en el iPhone con Sideloadly (Windows) usando tu Apple ID."
