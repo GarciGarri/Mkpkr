@@ -32,7 +32,7 @@ const three={ready:false,
     const H=S.height,T=12;
     const mat=(c,o={})=>track(new THREE.MeshStandardMaterial({color:new THREE.Color(c),roughness:o.r??0.6,metalness:o.m??0,transparent:!!o.op,opacity:o.op??1}));
     const fin=S.finish;
-    const M={front:mat(FRONTS[fin.front].c,{r:.55}),carc:mat('#d9d6cf'),plinth:mat('#3b3d40',{r:.8}),counter:mat(COUNTERS[fin.counter].c,{r:.35}),wall:mat(WALLS[fin.wall].c,{r:.9}),black:mat('#141518',{r:.3}),steel:mat('#b9bcc0',{r:.25,m:.8}),glass:mat('#bcd6e8',{op:.32,r:.1}),door:mat('#a77b52',{r:.6}),sink:mat('#8c9096',{r:.3,m:.6})};
+    const M={front:mat(FRONTS[fin.front].c,{r:FRONTS[fin.front].g?.18:.55}),carc:mat('#d9d6cf'),plinth:mat('#3b3d40',{r:.8}),counter:mat(COUNTERS[fin.counter].c,{r:.35}),wall:mat(WALLS[fin.wall].c,{r:.9}),black:mat('#141518',{r:.3}),steel:mat('#b9bcc0',{r:.25,m:.8}),glass:mat('#bcd6e8',{op:.32,r:.1}),door:mat('#a77b52',{r:.6}),sink:mat('#8c9096',{r:.3,m:.6})};
     // caja orientada a una pared: x0..x1 a lo largo, d0..d1 hacia dentro, y0..y1 altura (cm)
     const box=(w,x0,x1,d0,d1,y0,y1,m,shadow=true)=>{const geo=new THREE.BoxGeometry((x1-x0)/100,(y1-y0)/100,Math.abs(d1-d0)/100);const mesh=new THREE.Mesh(geo,m);const c=at(w,(x0+x1)/2,(d0+d1)/2);mesh.position.set(c.x/100,(y0+y1)/200,c.y/100);mesh.rotation.y=Math.atan2(-w.u.y,w.u.x);mesh.castShadow=shadow;mesh.receiveShadow=true;grp.add(mesh);return mesh;};
     // suelo

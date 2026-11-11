@@ -111,7 +111,7 @@ function renderSwatches(){
 }
 function videoPrompts(){
   const f=S.finish,sel=S.design.walls,shape={1:'lineal',2:'en L',3:'en U'}[sel.length]||'a medida';
-  const fr=FRONTS[f.front].n.toLowerCase(),co=COUNTERS[f.counter].n.toLowerCase(),fl=FLOORS[f.floor].n.toLowerCase(),wa=WALLS[f.wall].n.toLowerCase();
+  const fr=frontTxt(f.front),co=COUNTERS[f.counter].n.toLowerCase(),fl=FLOORS[f.floor].n.toLowerCase(),wa=WALLS[f.wall].n.toLowerCase();
   const k=`una cocina ${shape} con frentes lisos en ${fr}, encimera de ${co}, suelo de ${fl} y paredes en ${wa}`;
   const base='Vídeo vertical 9:16, realista, sin texto generado en pantalla.';
   return [
@@ -128,7 +128,7 @@ function renderPrompt(){
   const g=G,M=S.modules,f=S.finish;const sel=S.design.walls;const shape={1:'lineal',2:'en L',3:'en U'}[sel.length]||'a medida';
   const app=[M.some(m=>m.type==='nevera')&&'frigorífico integrado en columna',M.some(m=>m.type==='horno_col')&&'horno en columna',M.some(m=>m.type==='placa')&&'horno bajo la placa',M.some(m=>m.type==='lavavajillas')&&'lavavajillas integrado'].filter(Boolean).join(', ');
   const hasWin=S.openings.some(o=>o.type==='ventana'&&sel.includes(o.wall));
-  return `Fotografía de interiorismo de una cocina ${shape} en un piso español de ${fmt(g.area/1e4,1)} m² y ${S.height} cm de altura. Muebles con frentes lisos en ${FRONTS[f.front].n.toLowerCase()} y tiradores finos de acero, encimera de ${COUNTERS[f.counter].n.toLowerCase()} de 3 cm, ${S.design.uppers?'muebles altos hasta 215 cm':'sin muebles altos, con estantes abiertos'}, placa de inducción de ${S.design.hobW} cm con campana decorativa, fregadero de ${S.design.sinkW} cm${hasWin?' bajo la ventana':''}${app?', '+app:''}. Suelo de ${FLOORS[f.floor].n.toLowerCase()} y paredes en ${WALLS[f.wall].n.toLowerCase()}. Luz natural suave${hasWin?' entrando por la ventana':''}, tira LED bajo los altos, cámara a 1,5 m de altura con objetivo de 24 mm, encuadre como en la imagen de referencia, realista, sin personas.`;
+  return `Fotografía de interiorismo de una cocina ${shape} en un piso español de ${fmt(g.area/1e4,1)} m² y ${S.height} cm de altura. Muebles con frentes lisos en ${frontTxt(f.front)} y tiradores finos de acero, encimera de ${COUNTERS[f.counter].n.toLowerCase()} de 3 cm, ${S.design.uppers?'muebles altos hasta 215 cm':'sin muebles altos, con estantes abiertos'}, placa de inducción de ${S.design.hobW} cm con campana decorativa, fregadero de ${S.design.sinkW} cm${hasWin?' bajo la ventana':''}${app?', '+app:''}. Suelo de ${FLOORS[f.floor].n.toLowerCase()} y paredes en ${WALLS[f.wall].n.toLowerCase()}. Luz natural suave${hasWin?' entrando por la ventana':''}, tira LED bajo los altos, cámara a 1,5 m de altura con objetivo de 24 mm, encuadre como en la imagen de referencia, realista, sin personas.`;
 }
 function renderAll(){
   geom(); CHECKS=checks(); renderSummary();
