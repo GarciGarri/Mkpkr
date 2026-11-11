@@ -552,6 +552,11 @@ td select{max-width:170px}
           <div class="ai-out" id="render-prompt"></div>
           <div class="row"><button class="btn sm" id="copy-prompt">Copiar descripción</button></div>
         </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Vídeos para redes sociales</h2></div>
+          <p class="hint">Descripciones para generadores de vídeo con IA (Veo, Runway, Kling, Sora, Higgsfield…), formato vertical 9:16 de 5 a 10 s. Sube la captura del visor como imagen de referencia y añade los textos (precio, teléfono) después en el editor. No uses caras ni casas de clientes sin su permiso.</p>
+          <div id="video-prompts" class="stack"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -1505,6 +1510,22 @@ function renderSwatches(){
   const mk=(id,cat,key)=>{$(id).innerHTML=Object.entries(cat).map(([k,v])=>`<button data-k="${k}" aria-pressed="${S.finish[key]===k}"><i style="background:${v.c}"></i>${v.n}</button>`).join('');};
   mk('#sw-front',FRONTS,'front');mk('#sw-counter',COUNTERS,'counter');mk('#sw-floor',FLOORS,'floor');mk('#sw-wall',WALLS,'wall');
   $('#render-prompt').textContent=renderPrompt();
+  $('#video-prompts').innerHTML=videoPrompts().map((v,i)=>`<div><h3>${esc(v.t)}</h3><div class="ai-out" id="vp-${i}">${esc(v.d)}</div><div class="row"><button class="btn sm" data-vp="${i}">Copiar</button></div></div>`).join('');
+}
+function videoPrompts(){
+  const f=S.finish,sel=S.design.walls,shape={1:'lineal',2:'en L',3:'en U'}[sel.length]||'a medida';
+  const fr=FRONTS[f.front].n.toLowerCase(),co=COUNTERS[f.counter].n.toLowerCase(),fl=FLOORS[f.floor].n.toLowerCase(),wa=WALLS[f.wall].n.toLowerCase();
+  const k=`una cocina ${shape} con frentes lisos en ${fr}, encimera de ${co}, suelo de ${fl} y paredes en ${wa}`;
+  const base='Vídeo vertical 9:16, realista, sin texto generado en pantalla.';
+  return [
+    {t:'Antes y después',d:`${base} Una cocina antigua de madera oscura, azulejos anticuados y luz fluorescente fría se transforma con una transición lateral suave en ${k}, con luz cálida bajo los muebles altos. Cámara fija a la altura de la encimera, sin personas.`},
+    {t:'Recorrido de la cocina terminada',d:`${base} Travelling lento de izquierda a derecha por ${k}. Luz natural de mañana, ambiente limpio y ordenado, estilo revista de interiorismo, sin personas.`},
+    {t:'Del plano a la cocina',d:`${base} Vista cenital: las líneas de las paredes de una cocina ${shape} de ${fmt(G.area/1e4,1)} m² se dibujan con trazo fino sobre fondo blanco, los muebles aparecen en 3D y la cámara baja en picado hasta mostrar ${k}. Animación fluida, sin personas.`},
+    {t:'Detalle de la encimera',d:`${base} Primer plano de una encimera de ${co}; una gota de agua resbala por la superficie y la cámara la sigue despacio hasta el fregadero. Luz de estudio suave, fondo desenfocado, sin personas.`},
+    {t:'Detalle de los frentes',d:`${base} Una mano abre y cierra con suavidad un cajón con frente liso en ${fr} y tirador fino de acero, con cierre amortiguado. Plano medio con luz lateral de ventana.`},
+    {t:'Medición con láser y escaneo',d:`${base} Un profesional con ropa de trabajo apunta con un móvil a la pared de una cocina vacía; aparecen líneas de medida flotantes sobre las paredes. Travelling lento, luz natural de día, persona genérica sin rostro reconocible.`},
+    {t:'Llamada a la acción',d:`${base} Fondo con la textura de ${co} y un degradado suave en ${fr}. Animación lenta de 6 segundos con iconos minimalistas de regla, plano y llave, y espacio libre en el centro para añadir el texto de la oferta en el editor.`}
+  ];
 }
 function renderPrompt(){
   const g=G,M=S.modules,f=S.finish;const sel=S.design.walls;const shape={1:'lineal',2:'en L',3:'en U'}[sel.length]||'a medida';
@@ -1662,6 +1683,7 @@ $('#memo').addEventListener('input',e=>{noExample();S.memo=e.target.value;save()
 
 /* ---- acabados ---- */
 for(const [id,key] of [['#sw-front','front'],['#sw-counter','counter'],['#sw-floor','floor'],['#sw-wall','wall']]) $(id).addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(!b)return;touch();S.finish[key]=b.dataset.k;renderAll();});
+$('#video-prompts').addEventListener('click',e=>{const b=e.target.closest('[data-vp]');if(!b)return;const el=$('#vp-'+b.dataset.vp);navigator.clipboard?.writeText(el.textContent).then(()=>toast('Descripción copiada'),()=>{selectText(el);toast('Selecciona el texto y cópialo');});});
 $('#copy-prompt').addEventListener('click',()=>{const t=renderPrompt();navigator.clipboard?.writeText(t).then(()=>toast('Descripción copiada'),()=>{selectText($('#render-prompt'));toast('Selecciona el texto y cópialo');});});
 function selectText(el){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);}
 
