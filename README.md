@@ -1,18 +1,33 @@
 # Mkpkr
 
-## Mkpkr Cocinas (`cocinas.html`)
+Herramientas para medir, diseñar y presupuestar cocinas a partir de la visita a casa del cliente.
 
-Toma de datos, plano, presupuesto y render de cocinas a partir del escaneo LiDAR y del vídeo de la visita:
+| Parte | Qué es | Dónde |
+|---|---|---|
+| **Mkpkr Scan** | App de iPhone/iPad Pro: escaneo LiDAR, instalaciones, medidas | [`ios/MkpkrScan`](ios/MkpkrScan/README.md) |
+| **Mkpkr Cocinas** | Página web: planta, distribución, planos, presupuesto, PDF y render | fuentes en [`web/src`](web/src), compilada en `cocinas.html` |
+| Casos de prueba compartidos | Plantas con medidas conocidas que comprueban las dos partes | [`shared/fixtures/rooms.json`](shared/fixtures/rooms.json) |
+| Auditoría y plan | Diagnóstico y hoja de ruta | [`AUDITORIA_INTEGRAL.md`](AUDITORIA_INTEGRAL.md), [`ROADMAP_MEJORAS.md`](ROADMAP_MEJORAS.md) |
 
-1. **Captura**: importa la nube de puntos o malla del iPhone/iPad Pro (PLY binario o ASCII, OBJ, XYZ de Polycam, 3D Scanner App, Scaniverse) o el JSON `CapturedRoom` de Apple RoomPlan (paredes, puertas, ventanas y objetos ya medidos). De la nube saca la altura suelo–techo, endereza la planta y muestra un corte horizontal para marcar las esquinas (o ajuste rectangular automático). Del vídeo extrae fotogramas, permite medir sobre ellos con una referencia conocida y Claude (con visión) identifica tomas, huecos, caldera, estado y lo que hay que comprobar en obra.
-2. **Estancia**: planta rectangular, en L o la del escaneo; puertas, ventanas y tomas (agua, desagüe, gas, humos, enchufes).
-3. **Diseño**: distribución lineal, en L, en U o paralela con colocación automática (fregadero en la toma de agua, lavavajillas al lado, placa con encimera a ambos lados, columnas en los extremos, rinconeros, relleno con módulos estándar y regletas) y comprobaciones: triángulo de trabajo, separaciones, pasos libres, campana y tomas.
-4. **Planos**: planta de montaje acotada (cadena de módulos y huecos) y alzados por pared. Exporta SVG y DXF.
-5. **Presupuesto**: partidas calculadas del diseño con precios orientativos editables, margen, IVA, CSV y memoria para el cliente redactada por Claude.
-6. **Render**: visor 3D (three.js) con acabados de frentes, encimera, suelo y paredes; captura PNG y descripción para un generador de imágenes fotorrealistas.
+## Mkpkr Cocinas
 
-El botón «Exportar paquete .zip» reúne planta (SVG y DXF), alzados, presupuesto, proyecto JSON, memoria, notas, render y fotogramas.
+1. **Proyectos**: varios proyectos guardados en el navegador, con duplicar, borrar (con confirmación) y «Deshacer» en todos los cambios. Nada se sustituye sin preguntar.
+2. **Captura**: importa el escaneo de Mkpkr Scan (usa la planta ya resuelta en la app), el JSON de RoomPlan (reconstruye el contorno: cocinas abiertas, en U, en L, paredes partidas, tabiques sueltos; si no cierra, no importa y lo explica) o una nube de puntos PLY/OBJ/XYZ. Fotos y vídeo con medición sobre foto y análisis con Claude; las fotos se guardan con el proyecto.
+3. **Estancia**: forma, medida láser por pared (la planta se reajusta), lados abiertos, huecos e instalaciones con su altura, con avisos de valores imposibles.
+4. **Diseño**: distribución automática que deja libre el paso de puertas y ventanas de cualquier pared, coloca primero fregadero y placa y respeta los módulos bloqueados. Añadir, bloquear y quitar módulos. Comprobaciones ordenadas por gravedad.
+5. **Planos**: planta de montaje y alzados (SVG) y DXF por capas con arcos de puerta.
+6. **Presupuesto**: vista interna (coste, PVP, beneficio) y vista de cliente (margen incluido en cada precio, céntimos, descuento, partidas libres). PDF para el cliente con datos de empresa y cliente, numeración, condiciones, memoria, planos y render.
+7. **Render**: visor 3D con acabados e imagen de 2400 px.
 
-## Mkpkr Scan (`ios/MkpkrScan`)
+«Exportar paquete» reúne PDF, planos, DXF, CSV de cliente e interno, proyecto, memoria, notas, render y fotos.
 
-App nativa de iPhone/iPad Pro para medir la cocina con el LiDAR (RoomPlan de Apple): escaneo guiado con paredes, huecos y electrodomésticos detectados en directo, plano con cotas, modelo 3D, cinta métrica AR y envío del escaneo a Mkpkr Cocinas. Instrucciones en [`ios/MkpkrScan/README.md`](ios/MkpkrScan/README.md).
+### Desarrollo
+
+```sh
+cd web
+npm install            # dependencias de prueba (Playwright, three, jsPDF…)
+npm run build          # web/src → cocinas.html
+npm test               # comprueba la compilación y pasa las 8 baterías (108 comprobaciones)
+```
+
+No edites `cocinas.html` a mano: se genera desde `web/src`. GitHub Actions compila y prueba en cada cambio (`.github/workflows/web.yml`).
