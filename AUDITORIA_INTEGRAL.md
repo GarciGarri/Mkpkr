@@ -1,6 +1,6 @@
 # Auditoría integral — Mkpkr Cocinas y Mkpkr Scan
 
-Fecha: 9 de noviembre de 2026 · Commit auditado: `73772c3` (rama `claude/poker-ai-analyzer-ft3hbe`)
+Fecha: 9 de noviembre de 2026 · Commit auditado: `73772c3` (rama de trabajo inicial, hoy `main`)
 Alcance: las dos aplicaciones del repositorio, su integración, el sistema de compilación y publicación, y el producto como negocio.
 Durante la auditoría no se ha modificado código, datos ni configuración. Todas las pruebas se han hecho sobre una copia cargada en un navegador de pruebas.
 
@@ -300,7 +300,7 @@ Gravedad: **Crítica** (dato erróneo o pérdida en el flujo principal), **Alta*
 | E-16 | Fotos y medidas sobre foto no se guardan; el campo `measures` no se usa | `cocinas.html:505, 1163–1220` | Media | **[V]** tras recargar: 0 fotogramas, `measures = []` | Guardarlas en IndexedDB con el proyecto | 1–2 d | Recargar conserva fotos y medidas |
 | E-17 | Fuga de texturas y materiales del visor 3D | `cocinas.html:1299, 1354` | Baja | **[V]** de 2 a 27 texturas tras 25 cambios de acabado | Liberar materiales y texturas o reutilizarlos | 0,5 d | El contador se mantiene estable |
 | E-18 | Publicación poco trazable: la etiqueta `mkpkr-scan-ultima` apunta a `f0ed87e` y el binario se compila de `73772c3`; cualquier rama que toque `ios/` sustituye el .ipa público; acción de terceros sin fijar por hash con permiso de escritura; versión fija 0.1.0 (1); salida de compilación recortada | `.github/workflows/ios.yml`, `project.yml:9–10` | Media | **[V]** `git ls-remote` y cuerpo de la publicación | Publicar solo desde la rama principal o por etiqueta de versión, numerar compilaciones, fijar acciones por hash, guardar el registro completo | 1 d | Etiqueta y binario coinciden; la versión se ve en la app |
-| E-19 | Repositorio público con una sola rama de nombre ajeno al contenido (`claude/poker-ai-analyzer-…`), sin rama principal, sin protección ni licencia | GitHub | Baja | **[V]** | Crear `main`, proteger, decidir si debe ser público | 0,5 d | — |
+| E-19 | Repositorio público con una sola rama de nombre ajeno al contenido (ya sustituida por `main`), sin rama principal, sin protección ni licencia | GitHub | Baja | **[V]** | Crear `main`, proteger, decidir si debe ser público | 0,5 d | — |
 | E-20 | Accesibilidad | `cocinas.html` (tablas de Estancia y Diseño) | Media | **[V]** axe-core: 46 campos sin etiqueta y 29 desplegables sin nombre (crítico), contraste insuficiente en filas desactivadas, sin idioma declarado ni regiones; los lienzos de trazado y medición solo funcionan con ratón | Etiquetas accesibles, `lang="es"`, región principal, alternativa de teclado | 1–2 d | axe-core sin incidencias críticas ni graves |
 | E-21 | Móvil | `cocinas.html` (cabecera, pestañas, tablas, planos) | Media | **[V]** 555 de 844 px ocupados antes del contenido; total truncado («15.291…»); la pestaña activa queda fuera de la barra; columnas de importe fuera de pantalla; texto de cotas a 2,7 px | Ver §7 | 3–4 d | Capturas a 390 px |
 | E-22 | El redondeo de esquinas a centímetros añade hasta ±1 cm | `cocinas.html:1145` | Baja | **[V]** paredes de 360 importadas como 359 y 361 | Guardar decimales y redondear solo al mostrar | 0,5 d | Rectángulo girado: error < 0,2 cm |

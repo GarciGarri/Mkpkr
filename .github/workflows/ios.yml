@@ -13,7 +13,7 @@ permissions:
 
 env:
   # Solo esta rama publica el .ipa descargable; las demás solo compilan y prueban.
-  RELEASE_BRANCH: claude/poker-ai-analyzer-ft3hbe
+  RELEASE_BRANCH: main
 
 jobs:
   build:
