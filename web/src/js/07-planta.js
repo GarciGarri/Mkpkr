@@ -35,7 +35,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
       for(const r of runs)o.push(`<polygon points="${pstr([at(w,r.s),at(w,r.e),at(w,r.e,62),at(w,r.s,62)])}" fill="${P.cab}" stroke="${P.line}" stroke-width="1.2"/>`);}
     for(const m of lows){const w=g.walls[m.wall];if(!w)continue;const dep=m.level==='col'?60:60;
       const poly=[at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)];
-      o.push(`<polygon points="${pstr(poly)}" fill="${m.level==='col'?P.cab2:'none'}" stroke="${P.line}" stroke-width=".7"/>`);
+      o.push(`<polygon points="${pstr(poly)}" fill="${m.level==='col'?P.cab2:'none'}" stroke="${P.line}" stroke-width=".7"${exp?'':dragAttr('m:'+m.id,`${TYPES[m.type].n} ${fmt(m.w)} cm, pared ${L(m.wall)}, a ${fmt(m.x)} cm`)}/>`);
       const c=at(w,m.x+m.w/2,dep/2), deg=w.ang*180/Math.PI;
       if(m.type==='placa'||m.type==='placa_caj'){const r=m.w>=90?9:8;const xs=m.w>=90?[.2,.5,.8]:[.3,.7];for(const fx of xs)for(const fd of [.3,.7]){if(m.w>=90&&fx===.5&&fd===.7)continue;const q=at(w,m.x+m.w*fx,dep*fd);o.push(`<circle cx="${q.x}" cy="${q.y}" r="${fx===.5?r+3:r}" fill="none" stroke="${P.ink}" stroke-width="1"/>`);}}
       else if(m.type==='fregadero'){const k=m.w>=90?2:1;for(let j=0;j<k;j++){const x0=m.x+6+j*(m.w-12)/k,x1=m.x+6+(j+1)*(m.w-12)/k-(k>1?3:0);o.push(`<polygon points="${pstr([at(w,x0,12),at(w,x1,12),at(w,x1,52),at(w,x0,52)])}" fill="none" stroke="${P.ink}" stroke-width="1" stroke-linejoin="round"/>`);}const t=at(w,m.x+m.w/2,6);o.push(`<circle cx="${t.x}" cy="${t.y}" r="2.5" fill="${P.ink}"/>`);}
@@ -43,11 +43,11 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
       if(m.type!=='regleta'){const lc=at(w,m.x+m.w/2,m.type==='fregadero'?32:(m.type.startsWith('placa')?dep/2:47));o.push(txt(lc.x,lc.y,TYPES[m.type].k+(m.type==='placa'||m.type==='placa_caj'||m.type==='fregadero'?'':' '+m.w),deg,m.w<40?6:8,P.ink,font+' font-weight="600"'));}
     }
     for(const m of highs){const w=g.walls[m.wall];if(!w)continue;const dep=m.type==='campana'?50:35;
-      o.push(`<polygon points="${pstr([at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)])}" fill="none" stroke="${m.type==='campana'?P.ink:P.dim}" stroke-width=".9" stroke-dasharray="5 3"/>`);}
+      o.push(`<polygon points="${pstr([at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)])}" fill="none" stroke="${m.type==='campana'?P.ink:P.dim}" stroke-width=".9" stroke-dasharray="5 3"${exp?'':dragAttr('m:'+m.id,`${TYPES[m.type].n} alto ${fmt(m.w)} cm, pared ${L(m.wall)}, a ${fmt(m.x)} cm`,'stroke')}/>`);}
   }
   // tomas
   for(const s of S.services){const w=g.walls[s.wall];if(!w)continue;const c=at(w,s.x,9);const col=P[SERV_T[s.type].c.replace('--','')];
-    o.push(`<circle cx="${c.x}" cy="${c.y}" r="6" fill="${P.bg}" stroke="${col}" stroke-width="1.6"/>`+txt(c.x,c.y,SERV_T[s.type].k,0,7,col,font+' font-weight="700"'));}
+    o.push(`<g${exp?'':dragAttr('s:'+s.id,`${SERV_T[s.type].n}, pared ${L(s.wall)}, a ${fmt(s.x)} cm`)}><circle cx="${c.x}" cy="${c.y}" r="6" fill="${P.bg}" stroke="${col}" stroke-width="1.6"/>`+txt(c.x,c.y,SERV_T[s.type].k,0,7,col,font+' font-weight="700"')+'</g>');}
   // cotas
   if(chain){
     for(const w of g.walls){const deg=w.ang*180/Math.PI;
@@ -69,7 +69,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
   }
   if(title) o.push(`<text x="${g.minx}" y="${vb[1]+vb[3]-6}" font-size="9" fill="${P.ink}" ${font}>${esc(title)}</text>`);
   const vbs=vb.map(v=>v.toFixed(1)).join(' ');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbs}"${exp?` width="${R(vb[2]*3)}" height="${R(vb[3]*3)}"`:''} role="img" aria-label="Planta de la cocina">${o.join('')}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbs}"${exp?` width="${R(vb[2]*3)}" height="${R(vb[3]*3)}"`:''} role="${exp?'img':'group'}" aria-label="Planta de la cocina">${o.join('')}</svg>`;
 }
 function tick(p,w,col){const k=4,dx=(w.u.x+w.n.x)*k*.7,dy=(w.u.y+w.n.y)*k*.7;return `<line x1="${(p.x-dx).toFixed(1)}" y1="${(p.y-dy).toFixed(1)}" x2="${(p.x+dx).toFixed(1)}" y2="${(p.y+dy).toFixed(1)}" stroke="${col}" stroke-width="1.1"/>`;}
 

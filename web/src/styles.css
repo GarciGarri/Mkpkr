@@ -215,3 +215,9 @@ td.num,th.r{white-space:nowrap}
 @media (max-width:640px){.summary div.total b{font-size:.98rem}.summary b{font-size:.88rem}}
 td select{max-width:170px}
 #mod-table input[type=number]{width:62px}
+
+.svgbox [data-drag]{cursor:grab;touch-action:none}
+.svgbox [data-drag]:hover,.svgbox [data-drag]:focus-visible{stroke:var(--accent);stroke-width:2.2;outline:none}
+.svgbox g[data-drag]:hover circle,.svgbox g[data-drag]:focus-visible circle{stroke-width:3}
+body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
+.svgbox svg text{pointer-events:none}

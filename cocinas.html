@@ -221,6 +221,12 @@ td.num,th.r{white-space:nowrap}
 @media (max-width:640px){.summary div.total b{font-size:.98rem}.summary b{font-size:.88rem}}
 td select{max-width:170px}
 #mod-table input[type=number]{width:62px}
+
+.svgbox [data-drag]{cursor:grab;touch-action:none}
+.svgbox [data-drag]:hover,.svgbox [data-drag]:focus-visible{stroke:var(--accent);stroke-width:2.2;outline:none}
+.svgbox g[data-drag]:hover circle,.svgbox g[data-drag]:focus-visible circle{stroke-width:3}
+body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
+.svgbox svg text{pointer-events:none}
 </style>
 
 <div class="wrap">
@@ -446,6 +452,7 @@ td select{max-width:170px}
         <div class="panel">
           <div class="panel-head"><h2>Planta de montaje</h2><span class="muted small">cm · altos en discontinua</span><button class="btn sm ghost" data-zoom="design-svg" aria-pressed="false">Ampliar</button></div>
           <div class="svgbox" id="design-svg"></div>
+          <p class="hint">Arrastra cualquier módulo, electrodoméstico o instalación para moverlo; se pega a los módulos vecinos y queda bloqueado. Con el teclado: flechas (Mayús = 10 cm) y Re Pág / Av Pág para cambiar de pared.</p>
         </div>
       </div>
     </div>
@@ -532,6 +539,7 @@ td select{max-width:170px}
     <div class="grid">
       <div class="stack">
         <div id="three-wrap"><div id="three-msg">Cargando el visor 3D…</div></div>
+        <p class="hint">Arrastra los muebles y las marcas de color de las instalaciones para moverlos; arrastra el fondo para girar la vista. Las marcas no salen en la imagen guardada.</p>
         <div class="row">
           <button class="btn" id="r-reset">Vista general</button>
           <button class="btn" id="r-front">Vista frontal</button>
@@ -1240,7 +1248,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
       for(const r of runs)o.push(`<polygon points="${pstr([at(w,r.s),at(w,r.e),at(w,r.e,62),at(w,r.s,62)])}" fill="${P.cab}" stroke="${P.line}" stroke-width="1.2"/>`);}
     for(const m of lows){const w=g.walls[m.wall];if(!w)continue;const dep=m.level==='col'?60:60;
       const poly=[at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)];
-      o.push(`<polygon points="${pstr(poly)}" fill="${m.level==='col'?P.cab2:'none'}" stroke="${P.line}" stroke-width=".7"/>`);
+      o.push(`<polygon points="${pstr(poly)}" fill="${m.level==='col'?P.cab2:'none'}" stroke="${P.line}" stroke-width=".7"${exp?'':dragAttr('m:'+m.id,`${TYPES[m.type].n} ${fmt(m.w)} cm, pared ${L(m.wall)}, a ${fmt(m.x)} cm`)}/>`);
       const c=at(w,m.x+m.w/2,dep/2), deg=w.ang*180/Math.PI;
       if(m.type==='placa'||m.type==='placa_caj'){const r=m.w>=90?9:8;const xs=m.w>=90?[.2,.5,.8]:[.3,.7];for(const fx of xs)for(const fd of [.3,.7]){if(m.w>=90&&fx===.5&&fd===.7)continue;const q=at(w,m.x+m.w*fx,dep*fd);o.push(`<circle cx="${q.x}" cy="${q.y}" r="${fx===.5?r+3:r}" fill="none" stroke="${P.ink}" stroke-width="1"/>`);}}
       else if(m.type==='fregadero'){const k=m.w>=90?2:1;for(let j=0;j<k;j++){const x0=m.x+6+j*(m.w-12)/k,x1=m.x+6+(j+1)*(m.w-12)/k-(k>1?3:0);o.push(`<polygon points="${pstr([at(w,x0,12),at(w,x1,12),at(w,x1,52),at(w,x0,52)])}" fill="none" stroke="${P.ink}" stroke-width="1" stroke-linejoin="round"/>`);}const t=at(w,m.x+m.w/2,6);o.push(`<circle cx="${t.x}" cy="${t.y}" r="2.5" fill="${P.ink}"/>`);}
@@ -1248,11 +1256,11 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
       if(m.type!=='regleta'){const lc=at(w,m.x+m.w/2,m.type==='fregadero'?32:(m.type.startsWith('placa')?dep/2:47));o.push(txt(lc.x,lc.y,TYPES[m.type].k+(m.type==='placa'||m.type==='placa_caj'||m.type==='fregadero'?'':' '+m.w),deg,m.w<40?6:8,P.ink,font+' font-weight="600"'));}
     }
     for(const m of highs){const w=g.walls[m.wall];if(!w)continue;const dep=m.type==='campana'?50:35;
-      o.push(`<polygon points="${pstr([at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)])}" fill="none" stroke="${m.type==='campana'?P.ink:P.dim}" stroke-width=".9" stroke-dasharray="5 3"/>`);}
+      o.push(`<polygon points="${pstr([at(w,m.x),at(w,m.x+m.w),at(w,m.x+m.w,dep),at(w,m.x,dep)])}" fill="none" stroke="${m.type==='campana'?P.ink:P.dim}" stroke-width=".9" stroke-dasharray="5 3"${exp?'':dragAttr('m:'+m.id,`${TYPES[m.type].n} alto ${fmt(m.w)} cm, pared ${L(m.wall)}, a ${fmt(m.x)} cm`,'stroke')}/>`);}
   }
   // tomas
   for(const s of S.services){const w=g.walls[s.wall];if(!w)continue;const c=at(w,s.x,9);const col=P[SERV_T[s.type].c.replace('--','')];
-    o.push(`<circle cx="${c.x}" cy="${c.y}" r="6" fill="${P.bg}" stroke="${col}" stroke-width="1.6"/>`+txt(c.x,c.y,SERV_T[s.type].k,0,7,col,font+' font-weight="700"'));}
+    o.push(`<g${exp?'':dragAttr('s:'+s.id,`${SERV_T[s.type].n}, pared ${L(s.wall)}, a ${fmt(s.x)} cm`)}><circle cx="${c.x}" cy="${c.y}" r="6" fill="${P.bg}" stroke="${col}" stroke-width="1.6"/>`+txt(c.x,c.y,SERV_T[s.type].k,0,7,col,font+' font-weight="700"')+'</g>');}
   // cotas
   if(chain){
     for(const w of g.walls){const deg=w.ang*180/Math.PI;
@@ -1274,7 +1282,7 @@ function planSVG({exp=false,mods=true,chain=true,title=''}={}){
   }
   if(title) o.push(`<text x="${g.minx}" y="${vb[1]+vb[3]-6}" font-size="9" fill="${P.ink}" ${font}>${esc(title)}</text>`);
   const vbs=vb.map(v=>v.toFixed(1)).join(' ');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbs}"${exp?` width="${R(vb[2]*3)}" height="${R(vb[3]*3)}"`:''} role="img" aria-label="Planta de la cocina">${o.join('')}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbs}"${exp?` width="${R(vb[2]*3)}" height="${R(vb[3]*3)}"`:''} role="${exp?'img':'group'}" aria-label="Planta de la cocina">${o.join('')}</svg>`;
 }
 function tick(p,w,col){const k=4,dx=(w.u.x+w.n.x)*k*.7,dy=(w.u.y+w.n.y)*k*.7;return `<line x1="${(p.x-dx).toFixed(1)}" y1="${(p.y-dy).toFixed(1)}" x2="${(p.x+dx).toFixed(1)}" y2="${(p.y+dy).toFixed(1)}" stroke="${col}" stroke-width="1.1"/>`;}
 
@@ -1356,6 +1364,81 @@ function dxf(){
   return [...head,...out,'0','ENDSEC','0','EOF'].join('\r\n');
 }
 
+/* ================= mover módulos e instalaciones a mano (planta y 3D) ================= */
+const SERV_H={agua:50,desague:40,gas:60,humos:200,enchufe:110};
+const DRAG={on:null,raf:0};
+function dragItem(key){
+  const [k,id]=String(key).split(':');
+  if(k==='m'){const m=S.modules.find(x=>x.id===id);return m&&m.type!=='hueco'?{kind:'m',o:m,w:m.w}:null;}
+  if(k==='s'){const s=S.services.find(x=>x.id===id);return s?{kind:'s',o:s,w:0}:null;}
+  return null;
+}
+// Atributos que hacen arrastrable un elemento del plano.
+function dragAttr(key,label,pe='all'){return ` data-drag="${esc(key)}" tabindex="0" role="button" aria-label="${esc(label)}. Arrastra o usa las flechas para moverlo" pointer-events="${pe}"`;}
+// Coloca el elemento en la pared más cercana al punto p (cm de la planta). Devuelve true si ha cambiado.
+function placeAt(it,p,grab){
+  let best=null;
+  for(const w of G.walls){if(w.open)continue;const q=toWall(w,p);
+    const x=clamp(q.x-grab,0,Math.max(0,w.len-it.w));
+    const along=q.x<0?-q.x:q.x>w.len?q.x-w.len:0;
+    const d=Math.abs(q.y-(it.kind==='m'?30:9))+along*2+(q.y<-15?60:0);
+    if(!best||d<best.d)best={d,w,x};}
+  if(!best)return false;
+  let x=best.x;const len=best.w.len;
+  if(it.kind==='m'){ // imán: se pega a los bordes de la pared y de los módulos vecinos
+    const edges=[0,len-it.w];
+    for(const m of S.modules)if(m!==it.o&&m.wall===best.w.i&&m.type!=='hueco')edges.push(m.x+m.w,m.x-it.w,m.x,m.x+m.w-it.w);
+    let bd=4;for(const e of edges)if(e>=-0.01&&e<=len-it.w+0.01&&Math.abs(e-x)<bd){bd=Math.abs(e-x);x=e;}
+  }
+  x=r1(clamp(x,0,Math.max(0,len-it.w)));
+  const ch=it.o.wall!==best.w.i||Math.abs(it.o.x-x)>=0.05;
+  it.o.wall=best.w.i;it.o.x=x;return ch;
+}
+function dragGrab(it,p){const w=G.walls[it.o.wall];return w?clamp(toWall(w,p).x-it.o.x,0,it.w):0;}
+function svgPt(svg,e){const m=svg.getScreenCTM();if(!m)return null;const q=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());return {x:q.x,y:q.y};}
+function dragFrame(){if(DRAG.raf)return;DRAG.raf=requestAnimationFrame(()=>{DRAG.raf=0;renderAll();});}
+function dragMove(p){const d=DRAG.on;if(!d||!p)return;if(!d.moved){touch();d.moved=true;document.body.classList.add('dragging');}if(placeAt(d.it,p,d.grab))dragFrame();}
+function dragDone(it,how){
+  if(it.kind==='m'){it.o.lock=true;autoLayout();}
+  renderAll();
+  toast(it.kind==='m'?`${TYPES[it.o.type].n} fijado en la pared ${L(it.o.wall)} a ${fmt(it.o.x)} cm; el resto se ha recolocado.`:`${SERV_T[it.o.type].n} en la pared ${L(it.o.wall)} a ${fmt(it.o.x)} cm.`,how==='key'?undefined:{label:'Deshacer',run:undo});
+}
+function dragEnd(){
+  const d=DRAG.on;DRAG.on=null;document.body.classList.remove('dragging');
+  if(three.ctl)three.ctl.enabled=true;
+  if(DRAG.raf){cancelAnimationFrame(DRAG.raf);DRAG.raf=0;}
+  if(d&&d.moved)dragDone(d.it,'drag');
+}
+// Planta (Diseño, Estancia)
+document.addEventListener('pointerdown',e=>{
+  const el=e.target.closest?.('.svgbox [data-drag]');if(!el||e.button>0)return;
+  const svg=el.ownerSVGElement,it=dragItem(el.dataset.drag);if(!svg||!it)return;
+  geom();const p=svgPt(svg,e);if(!p)return;e.preventDefault();
+  DRAG.on={src:'plan',it,grab:dragGrab(it,p),box:svg.parentElement.id,moved:false,x0:e.clientX,y0:e.clientY};
+});
+document.addEventListener('pointermove',e=>{
+  const d=DRAG.on;if(!d)return;
+  if(!d.moved&&Math.hypot(e.clientX-d.x0,e.clientY-d.y0)<4)return;
+  if(d.src==='plan'){const svg=document.querySelector('#'+d.box+' svg');svg&&dragMove(svgPt(svg,e));}
+  else dragMove(three.floorPt(e,d.plane));
+});
+document.addEventListener('pointerup',()=>DRAG.on&&dragEnd());
+document.addEventListener('pointercancel',()=>DRAG.on&&dragEnd());
+// Teclado: flechas a lo largo de la pared (Mayús = 10 cm), Re Pág / Av Pág cambia de pared.
+document.addEventListener('keydown',e=>{
+  const el=e.target.closest?.('.svgbox [data-drag]');if(!el)return;
+  const key=el.dataset.drag,box=el.closest('.svgbox').id,it=dragItem(key);if(!it)return;geom();
+  const w=G.walls[it.o.wall];if(!w)return;const st=e.shiftKey?10:1;let x=it.o.x,wall=it.o.wall;
+  if(e.key==='ArrowRight'||e.key==='ArrowUp')x+=st;
+  else if(e.key==='ArrowLeft'||e.key==='ArrowDown')x-=st;
+  else if(e.key==='PageUp'||e.key==='PageDown'){const ws=G.walls.filter(v=>!v.open).map(v=>v.i);if(ws.length<2)return;const k=ws.indexOf(wall);wall=ws[(k+(e.key==='PageDown'?1:ws.length-1))%ws.length];}
+  else return;
+  e.preventDefault();
+  const nw=G.walls[wall];x=r1(clamp(x,0,Math.max(0,nw.len-it.w)));
+  if(x===it.o.x&&wall===it.o.wall)return;
+  touch();it.o.x=x;it.o.wall=wall;dragDone(it,'key');
+  document.querySelector(`#${box} [data-drag="${CSS.escape(key)}"]`)?.focus();
+});
 /* ================= presupuesto ================= */
 // Los precios de la tarifa son de coste. El precio al cliente lleva el margen repartido en cada línea,
 // redondeado a céntimos, y los totales se calculan sumando importes ya redondeados: lo que ve el cliente siempre cuadra.
@@ -2062,10 +2145,21 @@ const three={ready:false,
     const sun=new THREE.DirectionalLight(0xfff4e6,0.65);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-6;sun.shadow.camera.right=6;sun.shadow.camera.top=6;sun.shadow.camera.bottom=-6;sun.shadow.bias=-0.0008;this.sun=sun;this.scene.add(sun);this.scene.add(sun.target);
     this.group=new THREE.Group();this.scene.add(this.group);
     this.ready=true;this.r.setSize(1200,750,false);this.cam.aspect=1.6;this.cam.updateProjectionMatrix();
+    wrap.addEventListener('pointerdown',e=>{if(this.pick(e))e.stopPropagation();},true);
+    r.domElement.addEventListener('pointermove',e=>{if(DRAG.on)return;r.domElement.style.cursor=this.hit(e)?'grab':'';});
     new ResizeObserver(()=>this.resize()).observe(wrap);this.resize();this.rebuild();this.view('iso');
     const loop=()=>{requestAnimationFrame(loop);if($('#v-render').hidden)return;this.ctl&&this.ctl.update();this.hideWalls();r.render(this.scene,this.cam);};loop();
     return true;
   },
+  hit(e){const objs=this.group.children.filter(o=>o.userData.drag&&o.visible);if(!objs.length)return null;
+    const rc=this.r.domElement.getBoundingClientRect();const v=new THREE.Vector2((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
+    this.rc=this.rc||new THREE.Raycaster();this.rc.setFromCamera(v,this.cam);return this.rc.intersectObjects(objs,false)[0]||null;},
+  pick(e){if(e.button>0)return false;const h=this.hit(e);if(!h)return false;const it=dragItem(h.object.userData.drag);if(!it)return false;
+    geom();const p={x:h.point.x*100,y:h.point.z*100};
+    DRAG.on={src:'3d',it,grab:dragGrab(it,p),plane:new THREE.Plane(new THREE.Vector3(0,1,0),-h.point.y),moved:false,x0:e.clientX,y0:e.clientY};
+    if(this.ctl)this.ctl.enabled=false;this.r.domElement.style.cursor='grabbing';return true;},
+  floorPt(e,plane){const rc=this.r.domElement.getBoundingClientRect();const v=new THREE.Vector2((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
+    this.rc.setFromCamera(v,this.cam);const out=new THREE.Vector3();return this.rc.ray.intersectPlane(plane,out)?{x:out.x*100,y:out.z*100}:null;},
   resize(){if(!this.ready)return;const w=$('#three-wrap').clientWidth,h=$('#three-wrap').clientHeight;if(!w||!h)return;this.r.setSize(w,h,false);this.cam.aspect=w/h;this.cam.updateProjectionMatrix();},
   bg(){const css=getComputedStyle(document.documentElement);return new THREE.Color(css.getPropertyValue('--surface-2').trim()||'#f4f6f7');},
   view(kind){if(!this.ready)return;const g=G,cx=(g.minx+g.maxx)/200,cz=(g.miny+g.maxy)/200,sz=Math.max(g.maxx-g.minx,g.maxy-g.miny)/100;
@@ -2084,7 +2178,7 @@ const three={ready:false,
     const fin=S.finish;
     const M={front:mat(FRONTS[fin.front].c,{r:FRONTS[fin.front].g?.18:.55}),carc:mat('#d9d6cf'),plinth:mat('#3b3d40',{r:.8}),counter:mat(COUNTERS[fin.counter].c,{r:.35}),wall:mat(WALLS[fin.wall].c,{r:.9}),black:mat('#141518',{r:.3}),steel:mat('#b9bcc0',{r:.25,m:.8}),glass:mat('#bcd6e8',{op:.32,r:.1}),door:mat('#a77b52',{r:.6}),sink:mat('#8c9096',{r:.3,m:.6})};
     // caja orientada a una pared: x0..x1 a lo largo, d0..d1 hacia dentro, y0..y1 altura (cm)
-    const box=(w,x0,x1,d0,d1,y0,y1,m,shadow=true)=>{const geo=new THREE.BoxGeometry((x1-x0)/100,(y1-y0)/100,Math.abs(d1-d0)/100);const mesh=new THREE.Mesh(geo,m);const c=at(w,(x0+x1)/2,(d0+d1)/2);mesh.position.set(c.x/100,(y0+y1)/200,c.y/100);mesh.rotation.y=Math.atan2(-w.u.y,w.u.x);mesh.castShadow=shadow;mesh.receiveShadow=true;grp.add(mesh);return mesh;};
+    const box=(w,x0,x1,d0,d1,y0,y1,m,shadow=true)=>{const geo=new THREE.BoxGeometry((x1-x0)/100,(y1-y0)/100,Math.abs(d1-d0)/100);const mesh=new THREE.Mesh(geo,m);const c=at(w,(x0+x1)/2,(d0+d1)/2);mesh.position.set(c.x/100,(y0+y1)/200,c.y/100);mesh.rotation.y=Math.atan2(-w.u.y,w.u.x);mesh.castShadow=shadow;mesh.receiveShadow=true;if(this._tag)mesh.userData.drag=this._tag;grp.add(mesh);return mesh;};
     // suelo
     const shape=new THREE.Shape(g.pts.map(p=>new THREE.Vector2(p.x/100,p.y/100)));
     const fg=new THREE.ShapeGeometry(shape);fg.rotateX(Math.PI/2);
@@ -2106,7 +2200,7 @@ const three={ready:false,
       if(parts){let y=y1;for(const h of parts){out.push(box(w,x0+gap,x1-gap,dep,dep+1.8,y-h+gap,y-gap,m));out.push(box(w,(x0+x1)/2-10,(x0+x1)/2+10,dep+1.8,dep+3,y-5.5,y-4.5,M.steel,false));y-=h;}}
       else{const n=(x1-x0)>60?2:1;for(let k=0;k<n;k++){const a=x0+(x1-x0)*k/n,b=x0+(x1-x0)*(k+1)/n;out.push(box(w,a+gap,b-gap,dep,dep+1.8,y0+gap,y1-gap,m));const hx=n===2?(k===0?b-4:a+4):b-4;const hy=y1>140?[y0+4,y0+22]:[y1-22,y1-4];out.push(box(w,hx-.5,hx+.5,dep+1.8,dep+3,hy[0],hy[1],M.steel,false));}}
       return out;};
-    for(const mo of S.modules){const w=g.walls[mo.wall];if(!w||w.open||mo.type==='hueco')continue;const x0=mo.x,x1=mo.x+mo.w;
+    for(const mo of S.modules){const w=g.walls[mo.wall];if(!w||w.open||mo.type==='hueco')continue;const x0=mo.x,x1=mo.x+mo.w;this._tag='m:'+mo.id;
       if(mo.type==='electro'){box(w,x0+1,x1-1,1,58,1,85,M.carc);continue;}
       const highObjs=[];
       if(mo.level==='low'){box(w,x0+.5,x1-.5,0,52,0,10,M.plinth);box(w,x0,x1,0,58,10,86,M.carc);
@@ -2127,6 +2221,13 @@ const three={ready:false,
         const wr=this.walls[w.i];wr&&wr.objs.push(...highObjs);
       }
     }
+    this._tag=null;
+    // instalaciones: marcas siempre visibles para poder moverlas (no salen en la imagen exportada)
+    this.markers=[];const PX=pal(true);
+    for(const s of S.services){const w=g.walls[s.wall];if(!w||w.open)continue;const h=s.h??SERV_H[s.type];
+      const m=track(new THREE.MeshBasicMaterial({color:new THREE.Color(PX[SERV_T[s.type].c.replace('--','')]),depthTest:false,transparent:true,opacity:.9}));
+      this._tag='s:'+s.id;const mk=box(w,s.x-6,s.x+6,0,2,h-6,h+6,m,false);this._tag=null;mk.renderOrder=10;this.markers.push(mk);
+      const wr=this.walls[w.i];wr&&wr.objs.push(mk);}
     // encimeras continuas
     for(const w of g.walls){const ms=S.modules.filter(m=>m.wall===w.i&&m.level==='low'&&m.type!=='hueco').sort((a,b)=>a.x-b.x);let r=null;const runs=[];for(const m of ms){if(r&&Math.abs(r.e-m.x)<1)r.e=m.x+m.w;else{r={s:m.x,e:m.x+m.w};runs.push(r);}}
       for(const q of runs){box(w,q.s,q.e,0,62,86,90,M.counter);if(S.design.uppers)box(w,q.s,q.e,0,1,90,145,M.counter,false);}}
@@ -2138,7 +2239,7 @@ const three={ready:false,
     if($('#v-render').hidden){this.rebuild();}
     const r=this.r,size=new THREE.Vector2();r.getSize(size);const pr=r.getPixelRatio(),asp=this.cam.aspect;
     const w=width,h=Math.round(width/1.6);
-    r.setPixelRatio(1);r.setSize(w,h,false);this.cam.aspect=w/h;this.cam.updateProjectionMatrix();this.hideWalls();r.render(this.scene,this.cam);
+    r.setPixelRatio(1);r.setSize(w,h,false);this.cam.aspect=w/h;this.cam.updateProjectionMatrix();this.hideWalls();for(const mk of this.markers||[])mk.visible=false;r.render(this.scene,this.cam);this.hideWalls();
     const blob=await new Promise(res=>r.domElement.toBlob(res,'image/png'));
     r.setPixelRatio(pr);r.setSize(size.x||1200,size.y||750,false);this.cam.aspect=asp;this.cam.updateProjectionMatrix();
     return blob;
