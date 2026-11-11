@@ -16,8 +16,10 @@ struct ScanRecord: Codable, Identifiable, Hashable {
     var fixtures: [Fixture]
     var frameCount: Int
     var detectionDone: Bool
+    /// Medidas tomadas con láser por pared (índice → cm).
+    var realLengths: [Int: Float]
 
-    init(id: UUID, name: String, date: Date, summary: RoomSummary, measures: [ManualMeasure] = [], fixtures: [Fixture] = [], frameCount: Int = 0, detectionDone: Bool = false) {
+    init(id: UUID, name: String, date: Date, summary: RoomSummary, measures: [ManualMeasure] = [], fixtures: [Fixture] = [], frameCount: Int = 0, detectionDone: Bool = false, realLengths: [Int: Float] = [:]) {
         self.id = id
         self.name = name
         self.date = date
@@ -26,6 +28,7 @@ struct ScanRecord: Codable, Identifiable, Hashable {
         self.fixtures = fixtures
         self.frameCount = frameCount
         self.detectionDone = detectionDone
+        self.realLengths = realLengths
     }
 
     // Los escaneos guardados con versiones anteriores no tienen los campos nuevos.
@@ -39,21 +42,29 @@ struct ScanRecord: Codable, Identifiable, Hashable {
         fixtures = try c.decodeIfPresent([Fixture].self, forKey: .fixtures) ?? []
         frameCount = try c.decodeIfPresent(Int.self, forKey: .frameCount) ?? 0
         detectionDone = try c.decodeIfPresent(Bool.self, forKey: .detectionDone) ?? false
+        realLengths = try c.decodeIfPresent([Int: Float].self, forKey: .realLengths) ?? [:]
     }
 }
 
 /// Guarda cada escaneo en Documentos/Escaneos/<id>/ (visible en la app Archivos):
-/// captured-room.json (CapturedRoom de RoomPlan), modelo.usdz, meta.json y frames/.
+/// captured-room.json (CapturedRoom de RoomPlan), modelo.usdz y meta.json.
+/// Las fotos para la detección van aparte, en Application Support (no visibles en Archivos,
+/// fuera de la copia de seguridad y protegidas mientras el iPhone está bloqueado).
 @MainActor
 final class ScanStore: ObservableObject {
     @Published private(set) var scans: [ScanRecord] = []
     private let root: URL
+    private let privateRoot: URL
     private let fm = FileManager.default
 
     init() {
         root = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Escaneos", isDirectory: true)
         try? fm.createDirectory(at: root, withIntermediateDirectories: true)
+        var priv = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Fotos", isDirectory: true)
+        try? fm.createDirectory(at: priv, withIntermediateDirectories: true)
+        var rv = URLResourceValues(); rv.isExcludedFromBackup = true; try? priv.setResourceValues(rv)
+        privateRoot = priv
         load()
     }
 
@@ -61,7 +72,9 @@ final class ScanStore: ObservableObject {
     func capturedURL(_ id: UUID) -> URL { folder(id).appendingPathComponent("captured-room.json") }
     func modelURL(_ id: UUID) -> URL { folder(id).appendingPathComponent("modelo.usdz") }
     private func metaURL(_ id: UUID) -> URL { folder(id).appendingPathComponent("meta.json") }
-    private func framesDir(_ id: UUID) -> URL { folder(id).appendingPathComponent("frames", isDirectory: true) }
+    private func framesDir(_ id: UUID) -> URL { privateRoot.appendingPathComponent(id.uuidString, isDirectory: true) }
+    /// Ubicación de las versiones anteriores (dentro de Documentos).
+    private func legacyFramesDir(_ id: UUID) -> URL { folder(id).appendingPathComponent("frames", isDirectory: true) }
 
     func scan(_ id: UUID) -> ScanRecord? { scans.first { $0.id == id } }
 
@@ -71,8 +84,8 @@ final class ScanStore: ObservableObject {
         scans = dirs.compactMap { dir -> ScanRecord? in
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
                   var rec = try? dec.decode(ScanRecord.self, from: data) else { return nil }
-            // Escaneos antiguos: recalcula el resumen para tener la altura del suelo.
-            if rec.summary.floorY == nil,
+            // Escaneos de versiones anteriores: recalcula el resumen (altura del suelo y contorno).
+            if rec.summary.floorY == nil || (rec.summary.contour == nil && rec.summary.contourNote == nil),
                let raw = try? Data(contentsOf: dir.appendingPathComponent("captured-room.json")),
                let room = try? dec.decode(CapturedRoom.self, from: raw) {
                 rec.summary = RoomSummary(room: room)
@@ -90,20 +103,22 @@ final class ScanStore: ObservableObject {
         try JSONEncoder().encode(room).write(to: capturedURL(id))
         try? room.export(to: modelURL(id))
 
-        // Fotogramas para la detección automática.
+        let summary = RoomSummary(room: room)
+
+        // Fotos para la detección automática: se eligen las que mejor cubren cada pared.
         var metas: [KeyFrameMeta] = []
-        if !frames.isEmpty {
+        let chosen = Self.selectFrames(frames, summary: summary, max: 24)
+        if !chosen.isEmpty {
             try? fm.createDirectory(at: framesDir(id), withIntermediateDirectories: true)
-            for (i, f) in frames.enumerated() {
+            for (i, f) in chosen.enumerated() {
                 var m = f.0
                 m.file = String(format: "%03d.jpg", i)
-                if (try? f.1.write(to: framesDir(id).appendingPathComponent(m.file))) != nil { metas.append(m) }
+                if (try? f.1.write(to: framesDir(id).appendingPathComponent(m.file), options: [.completeFileProtectionUntilFirstUserAuthentication])) != nil { metas.append(m) }
             }
             try? JSONEncoder().encode(metas).write(to: framesDir(id).appendingPathComponent("frames.json"))
         }
 
         // Instalaciones marcadas con la cruz: se sitúan sobre las paredes definitivas.
-        let summary = RoomSummary(room: room)
         var fixtures: [Fixture] = []
         for m in marks {
             guard let p = summary.intersect(m.ray) ?? m.hit else { continue }
@@ -117,12 +132,36 @@ final class ScanStore: ObservableObject {
     }
 
     func loadFrames(_ id: UUID) -> [(KeyFrameMeta, Data)] {
-        guard let data = try? Data(contentsOf: framesDir(id).appendingPathComponent("frames.json")),
-              let metas = try? JSONDecoder().decode([KeyFrameMeta].self, from: data) else { return [] }
-        return metas.compactMap { m in
-            guard let d = try? Data(contentsOf: framesDir(id).appendingPathComponent(m.file)) else { return nil }
-            return (m, d)
+        for dir in [framesDir(id), legacyFramesDir(id)] {
+            guard let data = try? Data(contentsOf: dir.appendingPathComponent("frames.json")),
+                  let metas = try? JSONDecoder().decode([KeyFrameMeta].self, from: data) else { continue }
+            return metas.compactMap { m in
+                guard let d = try? Data(contentsOf: dir.appendingPathComponent(m.file)) else { return nil }
+                return (m, d)
+            }
         }
+        return []
+    }
+
+    /// Hasta `max` fotos repartidas entre las paredes que se ven en ellas (por turnos), para que
+    /// ninguna pared se quede sin fotos aunque el recorrido haya sido desigual.
+    static func selectFrames(_ frames: [(KeyFrameMeta, Data)], summary: RoomSummary, max: Int) -> [(KeyFrameMeta, Data)] {
+        guard frames.count > max else { return frames }
+        var byWall: [Int: [Int]] = [:]
+        for (i, f) in frames.enumerated() {
+            let wall = summary.intersect(f.0.ray(nx: 0.5, ny: 0.5)).flatMap { summary.locate($0)?.wall } ?? -1
+            byWall[wall, default: []].append(i)
+        }
+        var picked: [Int] = []
+        var queues = byWall.keys.sorted().map { byWall[$0]! }
+        while picked.count < max && queues.contains(where: { !$0.isEmpty }) {
+            for k in queues.indices where !queues[k].isEmpty && picked.count < max {
+                // dentro de cada pared, se alternan fotos del principio y del final del recorrido
+                let take = picked.count % 2 == 0 ? queues[k].removeFirst() : queues[k].removeLast()
+                picked.append(take)
+            }
+        }
+        return picked.sorted().map { frames[$0] }
     }
 
     func update(_ rec: ScanRecord) {
@@ -132,6 +171,7 @@ final class ScanStore: ObservableObject {
 
     func delete(_ id: UUID) {
         try? fm.removeItem(at: folder(id))
+        try? fm.removeItem(at: framesDir(id))
         scans.removeAll { $0.id == id }
     }
 
@@ -152,7 +192,20 @@ final class ScanStore: ObservableObject {
         let raw = try Data(contentsOf: capturedURL(rec.id))
         var obj = (try JSONSerialization.jsonObject(with: raw)) as? [String: Any] ?? [:]
         let floor = rec.summary.floorLevel
-        obj["mkpkr"] = [
+        var mk: [String: Any] = [:]
+        // Planta ya resuelta en la app: Mkpkr Cocinas la usa tal cual (mismas letras de pared).
+        if rec.summary.contour != nil {
+            var planta: [String: Any] = [
+                "esquinas": rec.summary.corners.map { [Double($0.x), Double($0.y)] },
+                "abiertas": rec.summary.openWalls ?? [],
+                "altura_cm": Double((rec.summary.height * 100).rounded()),
+            ]
+            if !rec.realLengths.isEmpty {
+                planta["paredes_reales"] = Dictionary(uniqueKeysWithValues: rec.realLengths.map { (String($0.key), Double($0.value)) })
+            }
+            mk["planta"] = planta
+        }
+        obj["mkpkr"] = mk.merging([
             "formato": "mkpkr-scan",
             "version": 2,
             "nombre": rec.name,
@@ -167,7 +220,7 @@ final class ScanStore: ObservableObject {
                     "origen": f.source.rawValue,
                 ]
             },
-        ] as [String: Any]
+        ] as [String: Any]) { _, new in new }
         let json = dir.appendingPathComponent("\(base).json")
         try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted]).write(to: json)
         var urls = [json]

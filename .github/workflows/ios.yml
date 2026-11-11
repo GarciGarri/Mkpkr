@@ -4,11 +4,16 @@ on:
   push:
     paths:
       - "ios/**"
+      - "shared/**"
       - ".github/workflows/ios.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  # Solo esta rama publica el .ipa descargable; las demás solo compilan y prueban.
+  RELEASE_BRANCH: claude/poker-ai-analyzer-ft3hbe
 
 jobs:
   build:
@@ -16,6 +21,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Pruebas de geometría (casos compartidos con la web)
+        working-directory: ios/MkpkrScan
+        run: |
+          swiftc -O MkpkrScan/PlanGeometry.swift Tests/main.swift -o geomtest
+          ./geomtest ../../shared/fixtures/rooms.json
       - name: Instalar XcodeGen
         run: brew install xcodegen
       - name: Generar proyecto
@@ -27,7 +37,15 @@ jobs:
           set -o pipefail
           xcodebuild -project MkpkrScan.xcodeproj -scheme MkpkrScan \
             -destination 'generic/platform=iOS' -configuration Release \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 60
+            -derivedDataPath build CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" | tail -n 80
+      - name: Guardar el registro completo de compilación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registro-compilacion
+          path: ios/MkpkrScan/build.log
+          retention-days: 30
       - name: Empaquetar .ipa sin firmar (para Sideloadly o AltStore)
         working-directory: ios/MkpkrScan
         run: |
@@ -35,19 +53,25 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/MkpkrScan.app Payload/
           zip -qry MkpkrScan-sin-firmar.ipa Payload
           ls -lh MkpkrScan-sin-firmar.ipa
+          echo "VERSION=$(grep MARKETING_VERSION project.yml | head -1 | sed 's/.*"\(.*\)".*/\1/')" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: MkpkrScan-ipa
           path: ios/MkpkrScan/MkpkrScan-sin-firmar.ipa
           retention-days: 90
+      - name: Mover la etiqueta al commit compilado
+        if: github.ref_name == env.RELEASE_BRANCH
+        run: |
+          git tag -f mkpkr-scan-ultima
+          git push -f origin mkpkr-scan-ultima
       - name: Publicar descarga directa (Releases)
+        if: github.ref_name == env.RELEASE_BRANCH
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mkpkr-scan-ultima
-          name: Mkpkr Scan · última versión
-          target_commitish: ${{ github.sha }}
+          name: Mkpkr Scan ${{ env.VERSION }} (${{ github.run_number }})
           make_latest: true
           body: |
+            Mkpkr Scan ${{ env.VERSION }}, compilación ${{ github.run_number }} (commit ${{ github.sha }}).
             Descarga `MkpkrScan-sin-firmar.ipa` e instálalo en el iPhone con Sideloadly (Windows) usando tu Apple ID.
-            Compilado desde ${{ github.sha }}.
           files: ios/MkpkrScan/MkpkrScan-sin-firmar.ipa

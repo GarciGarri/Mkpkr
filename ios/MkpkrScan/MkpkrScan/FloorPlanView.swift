@@ -83,11 +83,15 @@ struct FloorPlanView: View {
 
         // Paredes
         let wallWidth = max(showLabels ? 3 : 1.5, CGFloat(0.1 * map.k))
-        for wall in summary.walls {
+        for (i, wall) in summary.walls.enumerated() {
             var p = Path()
             p.move(to: P(wall.a))
             p.addLine(to: P(wall.b))
-            ctx.stroke(p, with: .color(.primary), style: StrokeStyle(lineWidth: wallWidth, lineCap: .square))
+            if summary.isOpen(i) {
+                ctx.stroke(p, with: .color(.secondary), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            } else {
+                ctx.stroke(p, with: .color(.primary), style: StrokeStyle(lineWidth: wallWidth, lineCap: .square))
+            }
         }
 
         // Puertas y ventanas

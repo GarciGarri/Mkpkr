@@ -185,19 +185,42 @@ final class FixtureDetector: ObservableObject {
 
         guard let latest = store.scan(id) else { return }
         rec = latest
-        rec.fixtures.removeAll { $0.source == .auto }
+        if failures == 0 {
+            // Todo analizado: las detecciones nuevas sustituyen a las anteriores (las manuales y marcadas se conservan).
+            rec.fixtures.removeAll { $0.source == .auto }
+            rec.detectionDone = true
+        }
+        // Si algún lote ha fallado, se añaden las nuevas sin borrar nada y se puede volver a intentar.
         for f in found { mergeFixture(f, into: &rec.fixtures) }
-        if failures < batches.count { rec.detectionDone = true }
         store.update(rec)
-        status = found.isEmpty
-            ? "No se ha detectado ninguna instalación. Añádelas a mano tocando el plano."
-            : "Detectadas \(found.count) instalaciones. Revísalas y corrige lo que haga falta."
+        if failures == batches.count {
+            status = nil
+        } else if failures > 0 {
+            status = "Analizadas \(batches.count - failures) de \(batches.count) tandas de fotos: \(found.count) instalaciones nuevas. Vuelve a intentarlo para completar."
+        } else {
+            status = found.isEmpty
+                ? "No se ha detectado ninguna instalación. Añádelas a mano tocando el plano."
+                : "Detectadas \(found.count) instalaciones. Revísalas y corrige lo que haga falta."
+        }
+    }
+
+    /// Coste aproximado en dólares de analizar `images` fotos de 1024 px con Claude Opus 5.5
+    /// (unos 1.150 tókenes de entrada por foto y unos 1.500 de salida por tanda de 5 fotos; 4 $ y 20 $ por millón).
+    static func estimatedCost(images: Int) -> Double {
+        let batches = (images + 4) / 5
+        let input = Double(images * 1150 + batches * 700), output = Double(batches * 1500)
+        return input * 4e-6 + output * 20e-6
     }
 }
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var key = APIKeyStore.read() ?? ""
+    @AppStorage("saveFrames") private var saveFrames = true
+    private var version: String {
+        let i = Bundle.main.infoDictionary
+        return "\(i?["CFBundleShortVersionString"] as? String ?? "?") (\(i?["CFBundleVersion"] as? String ?? "?"))"
+    }
 
     var body: some View {
         NavigationStack {
@@ -209,12 +232,22 @@ struct SettingsView: View {
                 } header: {
                     Text("Clave de API de Claude")
                 } footer: {
-                    Text("Sirve para detectar automáticamente enchufes, tomas de agua, desagües, gas y salidas de humos en las fotos del escaneo. Créala en console.anthropic.com → API Keys. Cada análisis cuesta unos céntimos y se cobra en esa cuenta. La clave se guarda solo en el llavero de este iPhone.")
+                    Text("Sirve para detectar automáticamente enchufes, tomas de agua, desagües, gas y salidas de humos en las fotos del escaneo. Créala en console.anthropic.com → API Keys. Cada análisis cuesta del orden de 0,10–0,40 $ según el número de fotos y se cobra en esa cuenta; la app te enseña la estimación antes de enviar. La clave se guarda solo en el llavero de este iPhone.")
                 }
                 if APIKeyStore.read() != nil {
                     Section {
                         Button("Borrar la clave", role: .destructive) { key = ""; APIKeyStore.save("") }
                     }
+                }
+                Section {
+                    Toggle("Guardar fotos para detectar instalaciones", isOn: $saveFrames)
+                } header: {
+                    Text("Privacidad")
+                } footer: {
+                    Text("Durante el escaneo la app guarda hasta 24 fotos de la cocina para buscar instalaciones. Se guardan solo en este iPhone, fuera de la copia de seguridad, y solo se envían a Anthropic (Claude) cuando pulsas «Detectar» y lo confirmas. Si lo desactivas, las instalaciones se marcan con la cruz o a mano.")
+                }
+                Section {
+                    LabeledContent("Versión", value: version)
                 }
             }
             .navigationTitle("Ajustes")

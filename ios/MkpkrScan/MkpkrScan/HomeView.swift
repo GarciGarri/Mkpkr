@@ -1,11 +1,13 @@
 import SwiftUI
 import RoomPlan
+import AVFoundation
 
 struct HomeView: View {
     @EnvironmentObject private var store: ScanStore
     @State private var path: [UUID] = []
     @State private var capturing = false
     @State private var noLidar = false
+    @State private var noCamera = false
     @State private var showingSettings = false
 
     var body: some View {
@@ -48,6 +50,12 @@ struct HomeView: View {
                 }
                 .environmentObject(store)
             }
+            .alert("Sin permiso para usar la cámara", isPresented: $noCamera) {
+                Button("Abrir Ajustes") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Mkpkr Scan necesita la cámara y el LiDAR para escanear. Actívalo en Ajustes › Mkpkr Scan › Cámara.")
+            }
             .alert("Este dispositivo no tiene LiDAR", isPresented: $noLidar) {
                 Button("Entendido", role: .cancel) {}
             } message: {
@@ -57,7 +65,15 @@ struct HomeView: View {
     }
 
     private func startScan() {
-        if RoomCaptureSession.isSupported { capturing = true } else { noLidar = true }
+        guard RoomCaptureSession.isSupported else { noLidar = true; return }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: capturing = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { ok in
+                DispatchQueue.main.async { if ok { capturing = true } else { noCamera = true } }
+            }
+        default: noCamera = true
+        }
     }
 
     private func row(_ s: ScanRecord) -> some View {

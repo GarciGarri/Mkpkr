@@ -21,7 +21,8 @@ final class CaptureController: NSObject, ObservableObject, RoomCaptureViewDelega
     private var lastPose: simd_float4x4?
     private let ciContext = CIContext()
     private let encodeQueue = DispatchQueue(label: "mkpkr.keyframes")
-    private static let maxFrames = 45
+    /// Candidatas durante el escaneo; al guardar se eligen las que mejor cubren cada pared.
+    private static let maxFrames = 60
 
     override init() {
         view = RoomCaptureView(frame: .zero)
@@ -85,7 +86,7 @@ final class CaptureController: NSObject, ObservableObject, RoomCaptureViewDelega
     // MARK: Fotogramas para la detección automática
 
     private func grabKeyFrame() {
-        guard running, frames.count < Self.maxFrames,
+        guard running, frames.count < Self.maxFrames, UserDefaults.standard.object(forKey: "saveFrames") as? Bool ?? true,
               let frame = view.captureSession.arSession.currentFrame,
               case .normal = frame.camera.trackingState else { return }
         let t = frame.camera.transform
@@ -101,10 +102,16 @@ final class CaptureController: NSObject, ObservableObject, RoomCaptureViewDelega
         let res = frame.camera.imageResolution
         let buffer = frame.capturedImage
         let flat = KeyFrameMeta.flatten(t)
+        let portrait = (view.window?.windowScene?.interfaceOrientation ?? .portrait).isPortrait
         encodeQueue.async { [weak self] in
             guard let self else { return }
-            let s = Float(1024) / Float(res.width)
-            let image = CIImage(cvPixelBuffer: buffer).transformed(by: CGAffineTransform(scaleX: CGFloat(s), y: CGFloat(s)))
+            let s = Float(1024) / Float(max(res.width, res.height))
+            var image = CIImage(cvPixelBuffer: buffer).transformed(by: CGAffineTransform(scaleX: CGFloat(s), y: CGFloat(s)))
+            if portrait {
+                // Giro de 90° en sentido horario: (x, y) → (y, W − x) en coordenadas de Core Image.
+                let w = image.extent.width
+                image = image.transformed(by: CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: w))
+            }
             let options = [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.7]
             guard let jpeg = self.ciContext.jpegRepresentation(of: image, colorSpace: CGColorSpaceCreateDeviceRGB(), options: options) else { return }
             let meta = KeyFrameMeta(
@@ -112,7 +119,8 @@ final class CaptureController: NSObject, ObservableObject, RoomCaptureViewDelega
                 width: Int((Float(res.width) * s).rounded()),
                 height: Int((Float(res.height) * s).rounded()),
                 fx: k[0][0] * s, fy: k[1][1] * s, cx: k[2][0] * s, cy: k[2][1] * s,
-                transform: flat
+                transform: flat,
+                rotation: portrait ? 90 : 0
             )
             DispatchQueue.main.async {
                 guard self.frames.count < Self.maxFrames else { return }
@@ -125,7 +133,12 @@ final class CaptureController: NSObject, ObservableObject, RoomCaptureViewDelega
     // MARK: RoomCaptureViewDelegate
 
     func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool {
-        true
+        if let error {
+            processing = false
+            errorText = "El escaneo se ha interrumpido: \(error.localizedDescription). Pulsa «Repetir» para empezar de nuevo."
+            return false
+        }
+        return true
     }
 
     func captureView(didPresent processedResult: CapturedRoom, error: Error?) {
@@ -179,6 +192,18 @@ struct CaptureScreen: View {
 
                 if let room = ctl.result {
                     savePanel(room)
+                } else if let err = ctl.errorText, !ctl.processing {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(err).font(.subheadline)
+                        HStack {
+                            Button("Cancelar") { ctl.cancel(); onClose(nil) }.buttonStyle(.bordered)
+                            Spacer()
+                            Button("Repetir") { ctl.start() }.buttonStyle(.borderedProminent).foregroundStyle(.black)
+                        }
+                    }
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .padding(.bottom)
                 } else {
                     if let msg = ctl.markMessage {
                         Text(msg)

@@ -53,6 +53,15 @@ struct RoomSummary: Codable, Hashable {
     var height: Float
     /// Altura del suelo en el sistema del escaneo (metros). Opcional para escaneos antiguos.
     var floorY: Float?
+    /// Contorno reconstruido (esquinas en orden). nil en escaneos antiguos o si no se pudo reconstruir.
+    var contour: [SIMD2<Float>]?
+    /// Lados sin pared (cocina abierta), por índice de pared.
+    var openWalls: [Int]?
+    /// Aviso cuando la planta no se ha podido reconstruir con seguridad.
+    var contourNote: String?
+    /// Tramos unidos y tabiques sueltos apartados al reconstruir.
+    var mergedSegments: Int?
+    var droppedSegments: Int?
 
     init(room: CapturedRoom) {
         let floorY = room.walls.map { $0.transform.columns.3.y - $0.dimensions.y / 2 }.min() ?? 0
@@ -65,13 +74,24 @@ struct RoomSummary: Codable, Hashable {
             return (c - u * (width / 2), c + u * (width / 2))
         }
 
-        var ws: [PlanWall] = room.walls.map { w in
+        let segs: [WallSegment] = room.walls.map { w in
             let e = ends(w.transform, w.dimensions.x)
-            return PlanWall(a: e.0, b: e.1, height: w.dimensions.y)
+            return WallSegment(a: e.0, b: e.1, height: w.dimensions.y)
         }
-        if !ws.isEmpty {
-            let c = ws.reduce(SIMD2<Float>(0, 0)) { $0 + $1.mid } / Float(ws.count)
-            ws.sort { atan2($0.mid.y - c.y, $0.mid.x - c.x) < atan2($1.mid.y - c.y, $1.mid.x - c.x) }
+        var ws: [PlanWall]
+        var contour: [SIMD2<Float>]? = nil, open: [Int]? = nil, note: String? = nil, merged: Int? = nil, dropped: Int? = nil
+        do {
+            // Mismo algoritmo que Mkpkr Cocinas: las letras A, B, C… coinciden en la app y en la web.
+            let r = try PlanGeometry.buildContour(segs)
+            ws = r.walls.map { PlanWall(a: $0.a, b: $0.b, height: $0.height) }
+            contour = r.corners; open = r.openIndices; merged = r.merged; dropped = r.dropped
+        } catch {
+            note = error.localizedDescription
+            ws = segs.map { PlanWall(a: $0.a, b: $0.b, height: $0.height) }
+            if !ws.isEmpty {
+                let c = ws.reduce(SIMD2<Float>(0, 0)) { $0 + $1.mid } / Float(ws.count)
+                ws.sort { atan2($0.mid.y - c.y, $0.mid.x - c.x) < atan2($1.mid.y - c.y, $1.mid.x - c.x) }
+            }
         }
 
         var ops: [PlanOpening] = []
@@ -98,10 +118,18 @@ struct RoomSummary: Codable, Hashable {
         objects = objs
         height = room.walls.map { $0.dimensions.y }.max() ?? 0
         self.floorY = floorY
+        self.contour = contour
+        self.openWalls = open
+        self.contourNote = note
+        self.mergedSegments = merged
+        self.droppedSegments = dropped
     }
+
+    func isOpen(_ i: Int) -> Bool { openWalls?.contains(i) ?? false }
 
     /// Esquinas: intersección de cada pared con la anterior.
     var corners: [SIMD2<Float>] {
+        if let c = contour, c.count == walls.count { return c }
         let n = walls.count
         guard n >= 3 else { return walls.flatMap { [$0.a, $0.b] } }
         return (0..<n).map { k in
@@ -127,12 +155,12 @@ struct RoomSummary: Codable, Hashable {
         return abs(s) / 2
     }
 
-    var perimeter: Float { walls.reduce(0) { $0 + $1.length } }
+    var perimeter: Float { walls.enumerated().reduce(0) { $0 + (isOpen($1.offset) ? 0 : $1.element.length) } }
 
     /// Pared más cercana a un punto de la planta.
     func wallIndex(near p: SIMD2<Float>) -> Int? {
         var best: (Int, Float)?
-        for (i, w) in walls.enumerated() {
+        for (i, w) in walls.enumerated() where !isOpen(i) {
             let d = w.b - w.a
             let len2 = simd_length_squared(d)
             let t = len2 > 0 ? max(0, min(1, simd_dot(p - w.a, d) / len2)) : 0

@@ -4,3 +4,5 @@ build/
 DerivedData/
 Payload/
 *.ipa
+build.log
+geomtest

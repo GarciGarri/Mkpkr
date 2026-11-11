@@ -33,6 +33,7 @@ struct ScanDetailView: View {
     @State private var confirmDelete = false
     @State private var errorText: String?
     @State private var hasKey = APIKeyStore.read() != nil
+    @State private var confirmDetect = false
 
     var body: some View {
         if let s = store.scan(id) {
@@ -76,7 +77,7 @@ struct ScanDetailView: View {
                     }
                 } else if hasKey {
                     Button {
-                        Task { await detector.run(store: store, id: id) }
+                        confirmDetect = true
                     } label: {
                         Label(s.detectionDone ? "Volver a detectar automáticamente" : "Detectar automáticamente", systemImage: "sparkles")
                     }
@@ -106,17 +107,51 @@ struct ScanDetailView: View {
                      : "Este escaneo no tiene fotos guardadas: añade las instalaciones a mano o vuelve a escanear.")
             }
 
-            Section("Resumen") {
+            Section {
                 LabeledContent("Superficie", value: m2(sum.area))
                 LabeledContent("Perímetro", value: meters(sum.perimeter))
                 LabeledContent("Altura libre", value: cm(sum.height))
+                if let note = sum.contourNote {
+                    Label(note + " Revisa la planta en Mkpkr Cocinas.", systemImage: "exclamationmark.triangle")
+                        .font(.footnote).foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Resumen")
+            } footer: {
+                if (sum.droppedSegments ?? 0) > 0 || (sum.mergedSegments ?? 0) > 0 {
+                    Text("Al reconstruir la planta se han unido \(sum.mergedSegments ?? 0) tramos de pared partidos y se han apartado \(sum.droppedSegments ?? 0) tabiques o tramos sueltos.")
+                }
             }
 
-            Section("Paredes") {
+            Section {
                 ForEach(Array(sum.walls.enumerated()), id: \.offset) { i, w in
-                    LabeledContent("Pared \(RoomSummary.letter(i))", value: cm(w.length))
-                        .monospacedDigit()
+                    HStack {
+                        Text("Pared \(RoomSummary.letter(i))")
+                        if sum.isOpen(i) { Text("lado abierto").font(.caption).foregroundStyle(.secondary) }
+                        Spacer()
+                        Text(cm(w.length)).monospacedDigit().foregroundStyle(.secondary)
+                        if !sum.isOpen(i) {
+                            TextField("Láser", text: Binding(
+                                get: { s.realLengths[i].map { String(format: "%g", $0).replacingOccurrences(of: ".", with: ",") } ?? "" },
+                                set: { t in
+                                    guard var r = store.scan(id) else { return }
+                                    let v = Float(t.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces))
+                                    if let v, v >= 10, v <= 3000 { r.realLengths[i] = v } else if t.trimmingCharacters(in: .whitespaces).isEmpty { r.realLengths[i] = nil } else { return }
+                                    store.update(r)
+                                }
+                            ))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 70)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("Medida con láser de la pared \(RoomSummary.letter(i)) en centímetros")
+                        }
+                    }
                 }
+            } header: {
+                Text("Paredes")
+            } footer: {
+                Text("Escribe en «Láser» la medida real de cada pared (en cm, a la altura de la encimera). Viaja con el escaneo y Mkpkr Cocinas reajusta la planta con ella.")
             }
 
             if !sum.openings.isEmpty {
@@ -199,11 +234,11 @@ struct ScanDetailView: View {
                 Image(systemName: "ellipsis.circle")
             }
         }
-        .task {
-            // Detección automática la primera vez que se abre un escaneo nuevo.
-            if hasKey, !s.detectionDone, s.frameCount > 0, !detector.running {
-                await detector.run(store: store, id: id)
-            }
+        .confirmationDialog("Detectar instalaciones", isPresented: $confirmDetect, titleVisibility: .visible) {
+            Button("Enviar \(s.frameCount) fotos y detectar") { Task { await detector.run(store: store, id: id) } }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se enviarán \(s.frameCount) fotos de esta cocina a Anthropic (Claude) para buscar enchufes, tomas de agua, desagües, gas y salidas de humos. Coste aproximado: \(String(format: "%.2f", FixtureDetector.estimatedCost(images: s.frameCount)).replacingOccurrences(of: ".", with: ",")) $ en tu cuenta de API. Avisa al cliente de que se toman fotos de su vivienda.")
         }
         .fullScreenCover(isPresented: $measuring) {
             MeasureScreen { results in

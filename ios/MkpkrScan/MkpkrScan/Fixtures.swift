@@ -105,6 +105,8 @@ struct KeyFrameMeta: Codable {
     var cy: Float
     /// Transformación de la cámara al mundo, 16 valores por columnas.
     var transform: [Float]
+    /// 90 si la foto guardada está girada 90° en sentido horario respecto al sensor (para verla derecha con el móvil en vertical).
+    var rotation: Int?
 
     var matrix: simd_float4x4 {
         guard transform.count == 16 else { return matrix_identity_float4x4 }
@@ -119,7 +121,10 @@ struct KeyFrameMeta: Codable {
 
     /// Rayo que sale de la cámara por un punto de la imagen (coordenadas 0–1, origen arriba a la izquierda).
     func ray(nx: Float, ny: Float) -> CameraRay {
-        let u = nx * Float(width), v = ny * Float(height)
+        // Coordenadas de la foto girada → coordenadas del sensor: (x', y') = (1 − y, x) ⇒ (x, y) = (y', 1 − x').
+        var sx = nx, sy = ny
+        if rotation == 90 { sx = ny; sy = 1 - nx }
+        let u = sx * Float(width), v = sy * Float(height)
         // Espacio de cámara de ARKit: x a la derecha, y arriba, mira hacia -z.
         let dc = simd_normalize(SIMD3<Float>((u - cx) / fx, -(v - cy) / fy, -1))
         let m = matrix
@@ -157,7 +162,7 @@ extension RoomSummary {
         var best: (Float, SIMD3<Float>)?
         let o2 = SIMD2<Float>(r.origin.x, r.origin.z)
         let d2 = SIMD2<Float>(r.direction.x, r.direction.z)
-        for w in walls {
+        for (i, w) in walls.enumerated() where !isOpen(i) {
             let ab = w.b - w.a
             let len = simd_length(ab)
             guard len > 0.05 else { continue }
@@ -178,7 +183,7 @@ extension RoomSummary {
     func locate(_ p: SIMD3<Float>) -> (wall: Int, along: Float, height: Float)? {
         let q = SIMD2<Float>(p.x, p.z)
         var best: (Int, Float, Float)?
-        for i in walls.indices {
+        for i in walls.indices where !isOpen(i) {
             let (s0, s1) = wallSegment(i)
             let ab = s1 - s0
             let len = simd_length(ab)
